@@ -1,0 +1,99 @@
+name: eventy
+description: "School Event Management System - A modern mobile application for managing school activities, competitions, seminars, and workshops."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+  
+  # Routing
+  go_router: ^14.2.0
+  
+  # Network
+  dio: ^5.4.3+1
+  
+  # Storage
+  shared_preferences: ^2.2.3
+  
+  # Images
+  cached_network_image: ^3.3.1
+  
+  # UI & Fonts
+  google_fonts: ^6.2.1
+  
+  # Icons
+  cupertino_icons: ^1.0.8
+  
+  # QR Code
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^5.1.1
+  
+  # PDF
+  pdf: ^3.10.8
+  printing: ^5.12.0
+  
+  # File Picker
+  file_picker: ^8.0.3
+  
+  # Image Picker
+  image_picker: ^1.1.2
+  
+  # Path Provider
+  path_provider: ^2.1.3
+  
+  # Intl
+  intl: ^0.20.3
+  
+  # URL Launcher
+  url_launcher: ^6.3.0
+  
+  # Share
+  share_plus: ^10.1.2
+  
+  # Smooth Page Indicator
+  smooth_page_indicator: ^1.1.0
+  
+  # Flutter SVG
+  flutter_svg: ^2.0.10+1
+  
+  # Shimmer for skeleton loading
+  shimmer: ^3.0.0
+  
+  # Calendar
+  table_calendar: ^3.1.2
+  supabase_flutter: ^2.17.2
+  flutter_dotenv: ^6.0.1
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  
+  # Code Generation
+  build_runner: ^2.4.9
+  riverpod_generator: ^2.4.0
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/images/thumbnail/
+    - assets/images/detail/
+    - assets/images/banner/
+    - assets/icons/
+    - assets/illustrations/
+    - .env

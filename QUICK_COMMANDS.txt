@@ -1,0 +1,171 @@
+================================================================================
+                        EVENTY - QUICK COMMANDS
+================================================================================
+
+🚀 MENJALANKAN APLIKASI:
+================================================================================
+
+# Chrome (Web) - RECOMMENDED ✅
+flutter run -d chrome
+
+# Edge (Web)
+flutter run -d edge
+
+# Windows Desktop (perlu Developer Mode)
+flutter run -d windows
+
+# Android Emulator/Device
+flutter run -d android
+
+# Check available devices
+flutter devices
+
+================================================================================
+🔧 DEVELOPMENT:
+================================================================================
+
+# Install dependencies
+flutter pub get
+
+# Clean project
+flutter clean
+
+# Analyze code
+flutter analyze
+
+# Format code
+flutter format lib/
+
+# Run tests
+flutter test
+
+# Build APK (Android)
+flutter build apk --release
+
+# Build App Bundle (Android)
+flutter build appbundle --release
+
+# Build Web
+flutter build web --release
+
+# Build Windows
+flutter build windows --release
+
+================================================================================
+🐛 DEBUGGING:
+================================================================================
+
+# Run with verbose
+flutter run -v
+
+# Run with device log
+flutter run --verbose
+
+# Check Flutter doctor
+flutter doctor
+
+# Check Flutter version
+flutter --version
+
+# Clear cache
+flutter pub cache clean
+
+================================================================================
+⚡ HOT RELOAD/RESTART:
+================================================================================
+
+Saat aplikasi berjalan, tekan:
+
+r   - Hot Reload (cepat, maintain state)
+R   - Hot Restart (reset state)
+d   - Detach (app tetap jalan)
+c   - Clear console
+q   - Quit (stop app)
+h   - Help (list commands)
+
+================================================================================
+📱 UNTUK WINDOWS DESKTOP:
+================================================================================
+
+Jika muncul error "symlink support":
+
+1. Buka Settings (Win + I)
+2. Pilih "Privacy & Security" atau "Update & Security"
+3. Pilih "For Developers"
+4. Aktifkan "Developer Mode"
+5. Restart komputer
+6. Jalankan: flutter run -d windows
+
+Atau langsung buka Developer Settings:
+start ms-settings:developers
+
+================================================================================
+🧪 TESTING LOGIN:
+================================================================================
+
+ADMIN:
+Email: admin@school.com
+Pass: admin123
+
+STUDENT:  
+Email: student@school.com
+Pass: student123
+
+================================================================================
+📂 PROJECT STRUCTURE:
+================================================================================
+
+lib/
+  ├── core/              # Core utilities & constants
+  ├── features/          # Feature modules
+  │   ├── authentication/
+  │   ├── student/
+  │   ├── admin/
+  │   └── shared/
+  └── main.dart          # Entry point
+
+================================================================================
+🎨 THEME COLORS (Blue Modern):
+================================================================================
+
+Primary   : #2563EB (Blue)
+Secondary : #60A5FA (Light Blue)
+Accent    : #7C3AED (Purple)
+Success   : #10B981 (Green)
+Warning   : #F59E0B (Orange)
+Error     : #EF4444 (Red)
+
+================================================================================
+✅ STATUS CHECK:
+================================================================================
+
+flutter analyze     # Should show "No issues found! ✅"
+flutter doctor      # Check Flutter installation
+flutter devices     # Check available devices
+
+================================================================================
+📝 USEFUL VS CODE SHORTCUTS:
+================================================================================
+
+Ctrl + Space        # Auto-complete
+Ctrl + .            # Quick fixes
+F2                  # Rename
+Alt + Shift + F     # Format document
+Ctrl + /            # Toggle comment
+Ctrl + P            # Quick file open
+Ctrl + Shift + P    # Command palette
+
+================================================================================
+🔄 UPDATE DEPENDENCIES:
+================================================================================
+
+# Check outdated packages
+flutter pub outdated
+
+# Upgrade dependencies
+flutter pub upgrade
+
+# Upgrade major versions
+flutter pub upgrade --major-versions
+
+================================================================================

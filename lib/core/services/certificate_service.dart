@@ -4,6 +4,7 @@ import '../../main.dart';
 import '../models/certificate_model.dart';
 import '../models/event_model.dart';
 import '../models/participant_model.dart';
+import '../utils/logger.dart';
 
 /// Certificate Service untuk mengelola logika sertifikat
 /// Menangani eligibility checking berdasarkan tipe sertifikat event
@@ -93,7 +94,7 @@ class CertificateService {
         templateId: templateId,
       );
     } catch (e) {
-      print('Error generating certificate: $e');
+      AppLogger.error('Error generating certificate', e);
       return null;
     }
   }
@@ -140,7 +141,7 @@ class CertificateService {
           )
           .toList();
     } catch (e) {
-      print('Error fetching student certificates: $e');
+      AppLogger.error('Error fetching student certificates', e);
       return [];
     }
   }
@@ -164,7 +165,7 @@ class CertificateService {
           )
           .toList();
     } catch (e) {
-      print('Error fetching event certificates: $e');
+      AppLogger.error('Error fetching event certificates', e);
       return [];
     }
   }
@@ -182,7 +183,7 @@ class CertificateService {
 
       return _certificateFromSupabase(response);
     } catch (e) {
-      print('Error fetching certificate: $e');
+      AppLogger.error('Error fetching certificate', e);
       return null;
     }
   }
@@ -202,7 +203,7 @@ class CertificateService {
 
       return response != null;
     } catch (e) {
-      print('Error checking certificate existence: $e');
+      AppLogger.error('Error checking certificate existence', e);
       return false;
     }
   }
@@ -226,7 +227,7 @@ class CertificateService {
 
       return _certificateFromSupabase(response);
     } catch (e) {
-      print('Error fetching student certificate for event: $e');
+      AppLogger.error('Error fetching student certificate for event', e);
       return null;
     }
   }
@@ -241,7 +242,7 @@ class CertificateService {
 
       return (response as List).length;
     } catch (e) {
-      print('Error counting event certificates: $e');
+      AppLogger.error('Error counting event certificates', e);
       return 0;
     }
   }

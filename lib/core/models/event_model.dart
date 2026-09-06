@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 import 'registration_model.dart' show RegistrationType;
+import '../utils/logger.dart';
 
 /// Certificate Type Enum
 enum CertificateType {
@@ -148,9 +149,9 @@ class EventModel {
         }
       }
     } catch (e) {
-      print('DEBUG EventModel.fromJson tags error for event ${json['id']}: $e');
-      print('DEBUG tags type: ${json['tags'].runtimeType}');
-      print('DEBUG tags value: ${json['tags']}');
+      AppLogger.error('EventModel.fromJson tags error for event ${json['id']}', e);
+      AppLogger.debug('tags type: ${json['tags'].runtimeType}');
+      AppLogger.debug('tags value: ${json['tags']}');
       parsedTags = [];
     }
     

@@ -4,6 +4,7 @@ import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/text_styles.dart';
 import '../../../../core/models/event_model.dart';
 import '../../../../core/models/registration_model.dart';
+import '../../../../core/utils/logger.dart';
 
 class EventRegistrationDialog extends StatefulWidget {
   final EventModel event;
@@ -174,22 +175,23 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> with 
   }
 
   void _handleSubmit() async {
-    // Debug print
-    print('=== REGISTRATION DEBUG ===');
-    print('Form valid: ${_formKey.currentState!.validate()}');
-    print('Terms agreed: $_agreedToTerms');
-    print('Event type: ${widget.event.registrationType}');
+    // Debug logging
+    AppLogger.debug('Registration form submission', {
+      'formValid': _formKey.currentState!.validate(),
+      'termsAgreed': _agreedToTerms,
+      'eventType': widget.event.registrationType.toString(),
+    });
     
     if (!_formKey.currentState!.validate()) {
       // Shake animation for error
       _shakeController.forward().then((_) => _shakeController.reverse());
-      print('Form validation failed');
+      AppLogger.debug('Form validation failed');
       return;
     }
     
     // Team-specific validation
     if (widget.event.registrationType == RegistrationType.team) {
-      print('Team member count: ${_teamMembers.length}');
+      AppLogger.debug('Team member count: ${_teamMembers.length}');
       if (_teamMembers.length < 2) {
         _shakeController.forward().then((_) => _shakeController.reverse());
         if (!mounted) return;
@@ -210,7 +212,7 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> with 
             margin: const EdgeInsets.all(16),
           ),
         );
-        print('Team validation failed: Less than 2 members');
+        AppLogger.debug('Team validation failed: Less than 2 members');
         return;
       }
     }
@@ -236,12 +238,12 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> with 
           margin: const EdgeInsets.all(16),
         ),
       );
-      print('Terms not agreed');
+      AppLogger.debug('Terms not agreed');
       return;
     }
 
     setState(() => _isSubmitting = true);
-    print('Submitting registration...');
+    AppLogger.debug('Submitting registration...');
 
     Map<String, dynamic> formData;
     
@@ -255,7 +257,7 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> with 
         'email': _emailController.text.trim(),
         'reason': _reasonController.text.trim(),
       };
-      print('Individual form data: $formData');
+      AppLogger.debug('Individual form data', formData);
     } else {
       formData = {
         'type': 'team',
@@ -269,14 +271,14 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> with 
         }).toList(),
         'memberCount': _teamMembers.length,
       };
-      print('Team form data: $formData');
+      AppLogger.debug('Team form data', formData);
     }
 
     // Delay to show loading state
     await Future.delayed(const Duration(milliseconds: 500));
     
     if (!mounted) return;
-    print('Calling onSubmit callback...');
+    AppLogger.debug('Calling onSubmit callback');
     widget.onSubmit(formData);
   }
 

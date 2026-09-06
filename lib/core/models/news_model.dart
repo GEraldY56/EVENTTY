@@ -1,3 +1,5 @@
+import '../utils/logger.dart';
+
 /// News Model
 class NewsModel {
   final String id;
@@ -95,8 +97,8 @@ class NewsModel {
         }
       }
     } catch (e) {
-      print('DEBUG NewsModel.fromJson tags error for news ${json['id']}: $e');
-      print('DEBUG tags type: ${json['tags'].runtimeType}');
+      AppLogger.error('NewsModel.fromJson tags error for news ${json['id']}', e);
+      AppLogger.debug('tags type: ${json['tags'].runtimeType}');
       parsedTags = [];
     }
     

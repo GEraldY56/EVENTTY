@@ -4,6 +4,7 @@ import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
 import '../../../../../core/services/certificate_service.dart';
+import '../../../../../core/utils/logger.dart';
 
 class CertificateScreen extends StatefulWidget {
   const CertificateScreen({super.key});
@@ -79,7 +80,7 @@ class _CertificateScreenState extends State<CertificateScreen> with SingleTicker
       
       setState(() => _isLoading = false);
     } catch (e) {
-      print('Error loading certificates: $e');
+      AppLogger.error('Error loading certificates', e);
       setState(() => _isLoading = false);
     }
   }

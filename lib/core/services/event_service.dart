@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/event_model.dart';
+import '../utils/logger.dart';
 
 class EventService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -19,7 +20,7 @@ class EventService {
           .map((json) => EventModel.fromJson(json))
           .toList();
     } catch (e) {
-      print('Error fetching events: $e');
+      AppLogger.error('Error fetching events', e);
       return [];
     }
   }
@@ -39,7 +40,7 @@ class EventService {
           .map((json) => EventModel.fromJson(json))
           .toList();
     } catch (e) {
-      print('Error fetching featured events: $e');
+      AppLogger.error('Error fetching featured events', e);
       return [];
     }
   }
@@ -59,7 +60,7 @@ class EventService {
           .map((json) => EventModel.fromJson(json))
           .toList();
     } catch (e) {
-      print('Error fetching popular events: $e');
+      AppLogger.error('Error fetching popular events', e);
       return [];
     }
   }
@@ -77,7 +78,7 @@ class EventService {
 
       return EventModel.fromJson(response);
     } catch (e) {
-      print('Error fetching event by ID: $e');
+      AppLogger.error('Error fetching event by ID', e);
       return null;
     }
   }
@@ -101,7 +102,7 @@ class EventService {
           .map((json) => EventModel.fromJson(json))
           .toList();
     } catch (e) {
-      print('Error fetching events by category: $e');
+      AppLogger.error('Error fetching events by category', e);
       return [];
     }
   }
@@ -131,7 +132,7 @@ class EventService {
           .map((json) => EventModel.fromJson(json))
           .toList();
     } catch (e) {
-      print('Error searching events: $e');
+      AppLogger.error('Error searching events', e);
       return [];
     }
   }
@@ -166,7 +167,7 @@ class EventService {
 
       return true;
     } catch (e) {
-      print('Error registering for event: $e');
+      AppLogger.error('Error registering for event', e);
       return false;
     }
   }
@@ -182,7 +183,7 @@ class EventService {
 
       return true;
     } catch (e) {
-      print('Error creating event: $e');
+      AppLogger.error('Error creating event', e);
       return false;
     }
   }
@@ -199,7 +200,7 @@ class EventService {
 
       return true;
     } catch (e) {
-      print('Error updating event: $e');
+      AppLogger.error('Error updating event', e);
       return false;
     }
   }
@@ -216,7 +217,7 @@ class EventService {
 
       return true;
     } catch (e) {
-      print('Error deleting event: $e');
+      AppLogger.error('Error deleting event', e);
       return false;
     }
   }
@@ -240,7 +241,7 @@ class EventService {
           .map((json) => EventModel.fromJson(json))
           .toList();
     } catch (e) {
-      print('Error fetching events by status: $e');
+      AppLogger.error('Error fetching events by status', e);
       return [];
     }
   }

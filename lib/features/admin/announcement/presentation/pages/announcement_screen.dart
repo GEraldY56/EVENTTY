@@ -823,25 +823,26 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
                     isPublished: isPublished,
                   );
 
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Announcement created successfully!'),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
-                    _loadAnnouncements();
-                  }
+                  if (!mounted) return;
+                  // ignore: use_build_context_synchronously
+                  Navigator.pop(context);
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Announcement created successfully!'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                  _loadAnnouncements();
                 } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Failed to create: $e'),
-                        backgroundColor: AppColors.error,
-                      ),
-                    );
-                  }
+                  if (!mounted) return;
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to create: $e'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -961,25 +962,26 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
                     isPublished: isPublished,
                   );
 
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Announcement updated successfully!'),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
-                    _loadAnnouncements();
-                  }
+                  if (!mounted) return;
+                  // ignore: use_build_context_synchronously
+                  Navigator.pop(context);
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Announcement updated successfully!'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                  _loadAnnouncements();
                 } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Failed to update: $e'),
-                        backgroundColor: AppColors.error,
-                      ),
-                    );
-                  }
+                  if (!mounted) return;
+                  // ignore: use_build_context_synchronously
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to update: $e'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -996,6 +998,8 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
   Future<void> _togglePublish(AnnouncementModel announcement) async {
     try {
       await _announcementService.togglePublish(announcement.id, announcement.isPublished);
+      if (!mounted) return;
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(announcement.isPublished
@@ -1006,6 +1010,8 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
       );
       _loadAnnouncements();
     } catch (e) {
+      if (!mounted) return;
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to toggle publish: $e'),
@@ -1033,25 +1039,26 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
             onPressed: () async {
               try {
                 await _announcementService.deleteAnnouncement(id);
-                if (mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Announcement deleted successfully'),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                  _loadAnnouncements();
-                }
+                if (!mounted) return;
+                // ignore: use_build_context_synchronously
+                Navigator.pop(context);
+                // ignore: use_build_context_synchronously
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Announcement deleted successfully'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+                _loadAnnouncements();
               } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to delete: $e'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
+                if (!mounted) return;
+                // ignore: use_build_context_synchronously
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to delete: $e'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
               }
             },
             style: ElevatedButton.styleFrom(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/registration_model.dart';
+import '../utils/logger.dart';
 
 /// Registration Service - Handle event registrations (INDIVIDUAL & TEAM)
 class RegistrationService {
@@ -79,7 +80,7 @@ class RegistrationService {
         registrationId: registration.id,
       );
     } catch (e) {
-      print('Error registering individual: $e');
+      AppLogger.error('Error registering individual', e);
 
       return RegistrationResult(
         success: false,
@@ -171,7 +172,7 @@ class RegistrationService {
         registrationId: registration.id,
       );
     } catch (e) {
-      print('Error registering team: $e');
+      AppLogger.error('Error registering team', e);
 
       return RegistrationResult(
         success: false,
@@ -201,7 +202,7 @@ class RegistrationService {
           .where((registration) => registration.includesStudent(userId))
           .toList();
     } catch (e) {
-      print('Error fetching user registrations: $e');
+      AppLogger.error('Error fetching user registrations', e);
       return [];
     }
   }
@@ -224,7 +225,7 @@ class RegistrationService {
           .map((json) => RegistrationModel.fromJson(json))
           .toList();
     } catch (e) {
-      print('Error fetching event registrations: $e');
+      AppLogger.error('Error fetching event registrations', e);
       return [];
     }
   }
@@ -270,7 +271,7 @@ class RegistrationService {
 
       return null;
     } catch (e) {
-      print('Error getting user registration: $e');
+      AppLogger.error('Error getting user registration', e);
       return null;
     }
   }
@@ -317,7 +318,7 @@ class RegistrationService {
 
       return true;
     } catch (e) {
-      print('Error cancelling registration: $e');
+      AppLogger.error('Error cancelling registration', e);
       return false;
     }
   }
@@ -342,7 +343,7 @@ class RegistrationService {
 
       return true;
     } catch (e) {
-      print('Error updating registration status: $e');
+      AppLogger.error('Error updating registration status', e);
       return false;
     }
   }
@@ -362,7 +363,7 @@ class RegistrationService {
           .map((json) => RegistrationModel.fromJson(json))
           .toList();
     } catch (e) {
-      print('Error fetching all registrations: $e');
+      AppLogger.error('Error fetching all registrations', e);
       return [];
     }
   }
@@ -382,7 +383,7 @@ class RegistrationService {
 
       return (response as List).length;
     } catch (e) {
-      print('Error getting registration count: $e');
+      AppLogger.error('Error getting registration count', e);
       return 0;
     }
   }
@@ -405,7 +406,7 @@ class RegistrationService {
 
       return total;
     } catch (e) {
-      print('Error getting participant count: $e');
+      AppLogger.error('Error getting participant count', e);
       return 0;
     }
   }
@@ -422,7 +423,7 @@ class RegistrationService {
         _registrationsController.add(registrations);
       }
     } catch (e) {
-      print('Error updating registration stream: $e');
+      AppLogger.error('Error updating registration stream', e);
     }
   }
 

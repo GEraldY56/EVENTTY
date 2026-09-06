@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/logger.dart';
 
 class SupabaseAuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -21,7 +22,7 @@ class SupabaseAuthService {
 
       return response['role'] as String?;
     } catch (e) {
-      print('Error getting user role: $e');
+      AppLogger.error('Error getting user role', e);
       return null;
     }
   }
@@ -38,7 +39,7 @@ class SupabaseAuthService {
 
       return response;
     } catch (e) {
-      print('Error getting profile: $e');
+      AppLogger.error('Error getting profile', e);
       return null;
     }
   }
@@ -111,7 +112,7 @@ class SupabaseAuthService {
 
       return true;
     } catch (e) {
-      print('Error updating profile: $e');
+      AppLogger.error('Error updating profile', e);
       return false;
     }
   }

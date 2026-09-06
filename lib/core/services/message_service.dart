@@ -51,15 +51,15 @@ class MessageService {
   }) async {
     try {
       // Check if conversation exists
-      final existingQuery = _supabase
+      var existingQuery = _supabase
           .from('conversations')
           .select('*')
           .eq('student_id', studentId);
 
       if (eventId != null) {
-        existingQuery.eq('event_id', eventId);
+        existingQuery = existingQuery.eq('event_id', eventId);
       } else {
-        existingQuery.is_('event_id', null);
+        existingQuery = existingQuery.isFilter('event_id', null);
       }
 
       final existing = await existingQuery;

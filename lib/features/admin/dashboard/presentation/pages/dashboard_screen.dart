@@ -5,7 +5,7 @@ import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
 import '../../../../../core/routes/route_names.dart';
-import '../../../../../main.dart';
+import '../../../../../core/providers/auth_provider.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});

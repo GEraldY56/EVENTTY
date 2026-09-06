@@ -6,7 +6,7 @@ import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
-import '../../../../../main.dart';
+import '../../../../../core/providers/auth_provider.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});

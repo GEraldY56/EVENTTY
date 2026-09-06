@@ -5,6 +5,7 @@ import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/spacing.dart';
 import '../../../../../core/constants/strings.dart';
 import '../../../../../core/routes/route_names.dart';
+import '../../../../../core/providers/auth_provider.dart';
 import '../widgets/home_header.dart';
 import '../widgets/search_bar_widget.dart';
 import '../widgets/featured_event_carousel.dart';
@@ -18,6 +19,8 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Get user name from provider
+    final userName = ref.watch(userNameProvider);
     // Get safe area insets untuk accurate bottom padding
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final bottomNavBarHeight = kBottomNavigationBarHeight; // 56.0
@@ -68,8 +71,8 @@ class HomeScreen extends ConsumerWidget {
           CustomScrollView(
             slivers: [
               // Modern Header dengan Greeting
-              const SliverToBoxAdapter(
-                child: HomeHeader(userName: 'Muhammad Faqih'),
+              SliverToBoxAdapter(
+                child: HomeHeader(userName: userName),
               ),
 
           // Content dengan padding

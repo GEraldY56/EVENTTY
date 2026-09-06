@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/constants/theme.dart';
 import 'core/services/auth_service.dart';
 import 'core/routes/app_router.dart';
+import 'core/providers/auth_provider.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -41,14 +42,12 @@ Future<void> main() async {
   // Initialize SharedPreferences
   final prefs = await SharedPreferences.getInstance();
 
-final authService = AuthService(prefs);
-
   runApp(
     ProviderScope(
       overrides: [
-        authServiceProvider.overrideWithValue(authService),
+        sharedPreferencesProvider.overrideWithValue(prefs),
       ],
-      child: MyApp(authService: authService),
+      child: MyApp(prefs: prefs),
     ),
   );
 }
@@ -56,21 +55,17 @@ final authService = AuthService(prefs);
 // Supabase client
 final supabase = Supabase.instance.client;
 
-// Provider for AuthService
-final authServiceProvider = Provider<AuthService>((ref) {
-  throw UnimplementedError();
-});
-
 class MyApp extends StatelessWidget {
-  final AuthService authService;
+  final SharedPreferences prefs;
 
   const MyApp({
     super.key,
-    required this.authService,
+    required this.prefs,
   });
 
   @override
   Widget build(BuildContext context) {
+    final authService = AuthService(prefs);
     final router = AppRouter(authService).router;
 
     return MaterialApp.router(

@@ -11,7 +11,8 @@ import '../../../../../core/services/event_service.dart';
 import '../../../../../core/services/bookmark_service.dart';
 import '../../../../../core/models/event_model.dart';
 import '../../../../../core/providers/message_context_provider.dart';
-import '../../../../../main.dart';
+import '../../../../../core/providers/auth_provider.dart';
+
 import '../../../../shared/widgets/app_button.dart';
 import '../../widgets/registration_dialog_simple.dart';
 import 'event_rules_screen.dart';

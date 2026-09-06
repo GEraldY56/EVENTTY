@@ -9,7 +9,8 @@ import '../../../../../core/routes/route_names.dart';
 import '../../../../../core/services/chat_service.dart';
 import '../../../../../core/services/eventty_bot_service.dart';
 import '../../../../../core/providers/message_context_provider.dart';
-import '../../../../../main.dart';
+import '../../../../../core/providers/auth_provider.dart';
+
 
 class StudentMessagesScreen extends ConsumerStatefulWidget {
   const StudentMessagesScreen({super.key});

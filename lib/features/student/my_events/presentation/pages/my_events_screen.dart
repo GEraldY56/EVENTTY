@@ -8,7 +8,8 @@ import '../../../../../core/services/registration_service.dart';
 import '../../../../../core/services/event_service.dart';
 import '../../../../../core/models/registration_model.dart';
 import '../../../../../core/models/event_model.dart';
-import '../../../../../main.dart';
+import '../../../../../core/providers/auth_provider.dart';
+
 
 class MyEventsScreen extends ConsumerStatefulWidget {
   const MyEventsScreen({super.key});

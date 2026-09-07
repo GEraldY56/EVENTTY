@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
-import '../../../../../core/routes/route_names.dart';
+import '../../../../../core/services/certificate_service.dart';
+import '../../../../../core/models/event_model.dart';
+import '../../../../../core/models/participant_model.dart';
 
 class CertificateScreen extends StatefulWidget {
   const CertificateScreen({super.key});
@@ -13,87 +15,133 @@ class CertificateScreen extends StatefulWidget {
 }
 
 class _CertificateScreenState extends State<CertificateScreen> {
-  String _selectedTab = 'Templates';
+  final CertificateService _certificateService = CertificateService();
+  List<EventModel> _events = [];
+  bool _isLoading = true;
+  Map<String, int> _certificateCounts = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEvents();
+  }
+
+  Future<void> _loadEvents() async {
+    setState(() => _isLoading = true);
+    try {
+      // Load events with certificate enabled
+      final response = await Supabase.instance.client
+          .from('events')
+          .select()
+          .eq('certificate_enabled', true)
+          .order('date', ascending: false);
+      
+      _events = (response as List)
+          .map((json) => EventModel.fromJson(json))
+          .toList();
+      
+      // Load certificate counts for each event
+      for (final event in _events) {
+        final count = await _certificateService.getEventCertificateCount(event.id);
+        _certificateCounts[event.id] = count;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading events: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Certificates', style: AppTextStyles.heading3),
-        backgroundColor: AppColors.background,
-        actions: [
-          if (_selectedTab == 'Templates')
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () {
-                context.push(RouteNames.adminCreateTemplate);
-              },
-              tooltip: 'Create Template',
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Certificates', style: AppTextStyles.heading3),
+            Text(
+              'Generate sertifikat untuk event',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
             ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Tab Selector
-          _buildTabSelector(),
-          
-          // Content
-          Expanded(
-            child: _selectedTab == 'Templates'
-                ? _buildTemplatesTab()
-                : _buildGeneratedTab(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabSelector() {
-    return Container(
-      margin: const EdgeInsets.all(AppSpacing.horizontalPadding),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildTabButton('Templates', Icons.design_services),
-          ),
-          Expanded(
-            child: _buildTabButton('Generated', Icons.workspace_premium),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabButton(String label, IconData icon) {
-    final isSelected = _selectedTab == label;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTab = label),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+          ],
         ),
-        child: Row(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _events.isEmpty
+              ? _buildEmptyState()
+              : _buildEventsList(),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              icon,
-              size: 18,
-              color: isSelected ? Colors.white : AppColors.textSecondary,
+              Icons.workspace_premium_outlined,
+              size: 80,
+              color: AppColors.textSecondary.withValues(alpha: 0.5),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(height: 16),
             Text(
-              label,
+              'Belum Ada Event dengan Sertifikat',
+              style: AppTextStyles.heading3,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Event yang mengaktifkan fitur certificate akan muncul di sini',
               style: AppTextStyles.body1.copyWith(
-                color: isSelected ? Colors.white : AppColors.textSecondary,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.info.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 20, color: AppColors.info),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Cara Mengaktifkan Sertifikat:',
+                        style: AppTextStyles.titleMedium.copyWith(
+                          color: AppColors.info,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInfoStep('1', 'Buka halaman Events'),
+                  _buildInfoStep('2', 'Edit event yang ingin diberi sertifikat'),
+                  _buildInfoStep('3', 'Aktifkan toggle "Certificate Enabled"'),
+                  _buildInfoStep('4', 'Pilih tipe sertifikat (Semua peserta / Pemenang)'),
+                ],
               ),
             ),
           ],
@@ -102,53 +150,76 @@ class _CertificateScreenState extends State<CertificateScreen> {
     );
   }
 
-  Widget _buildTemplatesTab() {
-    // Sample templates
-    final templates = [
-      {
-        'id': '1',
-        'name': 'Modern Template',
-        'description': 'Clean and modern certificate design',
-        'layout': 'Modern',
-        'usedCount': 12,
-      },
-      {
-        'id': '2',
-        'name': 'Classic Template',
-        'description': 'Traditional certificate with elegant border',
-        'layout': 'Classic',
-        'usedCount': 8,
-      },
-      {
-        'id': '3',
-        'name': 'Elegant Template',
-        'description': 'Premium design with gold accents',
-        'layout': 'Elegant',
-        'usedCount': 15,
-      },
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
-      itemCount: templates.length,
-      itemBuilder: (context, index) {
-        final template = templates[index];
-        return _buildTemplateCard(template);
-      },
+  Widget _buildInfoStep(String number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: AppColors.info,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: AppTextStyles.captionSmall.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                text,
+                style: AppTextStyles.body2.copyWith(color: AppColors.info),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildTemplateCard(Map<String, dynamic> template) {
+  Widget _buildEventsList() {
+    return RefreshIndicator(
+      onRefresh: _loadEvents,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
+        itemCount: _events.length,
+        itemBuilder: (context, index) {
+          final event = _events[index];
+          final certCount = _certificateCounts[event.id] ?? 0;
+          return _buildEventCard(event, certCount);
+        },
+      ),
+    );
+  }
+
+  Widget _buildEventCard(EventModel event, int certCount) {
+    final bool hasGenerated = certCount > 0;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
       padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(
+          color: hasGenerated 
+              ? AppColors.success.withValues(alpha: 0.3)
+              : AppColors.border,
+        ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadowLight,
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -159,16 +230,21 @@ class _CertificateScreenState extends State<CertificateScreen> {
         children: [
           Row(
             children: [
+              // Event Icon
               Container(
-                width: 60,
-                height: 60,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
-                  color: AppColors.primary10,
+                  gradient: LinearGradient(
+                    colors: hasGenerated
+                        ? [AppColors.success, AppColors.success.withValues(alpha: 0.7)]
+                        : [AppColors.primary, AppColors.primary.withValues(alpha: 0.7)],
+                  ),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 ),
-                child: const Icon(
-                  Icons.design_services,
-                  color: AppColors.primary,
+                child: Icon(
+                  hasGenerated ? Icons.verified : Icons.workspace_premium,
+                  color: Colors.white,
                   size: 28,
                 ),
               ),
@@ -178,215 +254,72 @@ class _CertificateScreenState extends State<CertificateScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      template['name'] as String,
+                      event.title,
                       style: AppTextStyles.titleMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      template['description'] as String,
-                      style: AppTextStyles.body2,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _buildInfoChip(
-                Icons.auto_awesome,
-                template['layout'] as String,
-                AppColors.info,
-              ),
-              const SizedBox(width: 8),
-              _buildInfoChip(
-                Icons.people,
-                '${template['usedCount']} events',
-                AppColors.success,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    context.push(
-                      RouteNames.adminPreviewTemplate.replaceAll(':id', template['id'] as String),
-                    );
-                  },
-                  icon: const Icon(Icons.visibility, size: 16),
-                  label: const Text('Preview'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 36),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    _showGenerateDialog(template);
-                  },
-                  icon: const Icon(Icons.auto_awesome, size: 16),
-                  label: const Text('Generate'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(0, 36),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGeneratedTab() {
-    // Sample generated certificates
-    final certificates = [
-      {
-        'id': '1',
-        'eventTitle': 'Classmeet 2026',
-        'participantName': 'Muhammad Faqih',
-        'certificateNumber': 'CERT-2026-001',
-        'issuedDate': '15 Agustus 2026',
-        'totalGenerated': 45,
-      },
-      {
-        'id': '2',
-        'eventTitle': 'Basketball Competition',
-        'participantName': 'Ahmad Zaki',
-        'certificateNumber': 'CERT-2026-002',
-        'issuedDate': '10 Agustus 2026',
-        'totalGenerated': 32,
-      },
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
-      itemCount: certificates.length,
-      itemBuilder: (context, index) {
-        final cert = certificates[index];
-        return _buildCertificateCard(cert);
-      },
-    );
-  }
-
-  Widget _buildCertificateCard(Map<String, dynamic> cert) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
-      padding: const EdgeInsets.all(AppSpacing.paddingLG),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.secondary,
-                      AppColors.secondary.withValues(alpha: 0.7),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                ),
-                child: const Icon(
-                  Icons.workspace_premium,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      cert['eventTitle'] as String,
-                      style: AppTextStyles.titleMedium,
-                    ),
                     const SizedBox(height: 4),
                     Text(
-                      cert['certificateNumber'] as String,
+                      event.formattedDate,
                       style: AppTextStyles.body2,
                     ),
                   ],
                 ),
               ),
-              PopupMenuButton(
-                icon: const Icon(Icons.more_vert, size: 20),
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'view',
-                    child: Row(
-                      children: [
-                        Icon(Icons.visibility, size: 18),
-                        SizedBox(width: 12),
-                        Text('View All'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'download',
-                    child: Row(
-                      children: [
-                        Icon(Icons.download, size: 18),
-                        SizedBox(width: 12),
-                        Text('Download All'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, size: 18, color: AppColors.error),
-                        SizedBox(width: 12),
-                        Text('Delete', style: TextStyle(color: AppColors.error)),
-                      ],
-                    ),
-                  ),
-                ],
-                onSelected: (value) {
-                  if (value == 'view') {
-                    context.push(
-                      RouteNames.adminCertificateList.replaceAll(':eventId', cert['id'] as String),
-                    );
-                  } else if (value == 'download') {
-                    _showDownloadDialog(cert);
-                  }
-                },
-              ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          
+          // Certificate Info
           Row(
             children: [
-              Icon(Icons.people, size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 6),
-              Text(
-                '${cert['totalGenerated']} certificates generated',
-                style: AppTextStyles.body2,
+              _buildInfoChip(
+                Icons.category,
+                _getCertificateTypeLabel(event.certificateType),
+                AppColors.info,
               ),
-              const SizedBox(width: 16),
-              Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 6),
-              Text(
-                cert['issuedDate'] as String,
-                style: AppTextStyles.body2,
+              const SizedBox(width: 8),
+              if (hasGenerated)
+                _buildInfoChip(
+                  Icons.check_circle,
+                  '$certCount sertifikat',
+                  AppColors.success,
+                ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Actions
+          Row(
+            children: [
+              if (hasGenerated) ...[
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _viewGeneratedCertificates(event),
+                    icon: const Icon(Icons.visibility, size: 18),
+                    label: const Text('Lihat Sertifikat'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _generateCertificates(event),
+                  icon: Icon(
+                    hasGenerated ? Icons.refresh : Icons.auto_awesome,
+                    size: 18,
+                  ),
+                  label: Text(hasGenerated ? 'Generate Ulang' : 'Generate'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: hasGenerated ? AppColors.warning : AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
               ),
             ],
           ),
@@ -420,20 +353,37 @@ class _CertificateScreenState extends State<CertificateScreen> {
     );
   }
 
-  void _showGenerateDialog(Map<String, dynamic> template) {
-    showDialog(
+  String _getCertificateTypeLabel(CertificateType type) {
+    switch (type) {
+      case CertificateType.allParticipants:
+        return 'Semua Peserta';
+      case CertificateType.winners:
+        return 'Pemenang Saja';
+      case CertificateType.none:
+        return 'Tidak Aktif';
+    }
+  }
+
+  Future<void> _generateCertificates(EventModel event) async {
+    // Show confirmation dialog
+    final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Generate Certificates', style: AppTextStyles.heading3),
+        title: Text('Generate Sertifikat', style: AppTextStyles.heading3),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Select an event to generate certificates for eligible participants.',
-              style: AppTextStyles.body1,
+              'Event: ${event.title}',
+              style: AppTextStyles.titleMedium,
             ),
             const SizedBox(height: 12),
+            Text(
+              'Generate sertifikat untuk peserta yang eligible?',
+              style: AppTextStyles.body1,
+            ),
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -441,74 +391,199 @@ class _CertificateScreenState extends State<CertificateScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: AppColors.info),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Only events with certificate enabled will be shown',
-                      style: AppTextStyles.caption.copyWith(color: AppColors.info),
-                    ),
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: AppColors.info),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Kriteria Eligible:',
+                        style: AppTextStyles.titleSmall.copyWith(
+                          color: AppColors.info,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '✓ Peserta sudah melakukan absensi (status = attended)',
+                    style: AppTextStyles.caption.copyWith(color: AppColors.info),
+                  ),
+                  Text(
+                    event.certificateType == CertificateType.winners
+                        ? '✓ Peserta adalah pemenang (Juara 1/2/3)'
+                        : '✓ Semua peserta yang hadir',
+                    style: AppTextStyles.caption.copyWith(color: AppColors.info),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Template: ${template['name']}',
-              style: AppTextStyles.body2.copyWith(
-                color: AppColors.textSecondary,
               ),
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.push(
-                RouteNames.adminSelectEventForCertificate.replaceAll(':templateId', template['id'] as String),
-              );
-            },
-            child: const Text('Select Event'),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.auto_awesome),
+            label: const Text('Generate'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+            ),
           ),
         ],
       ),
     );
-  }
 
-  void _showDownloadDialog(Map<String, dynamic> cert) {
+    if (confirm != true) return;
+
+    // Show loading dialog
+    if (!mounted) return;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Download Certificates', style: AppTextStyles.heading3),
-        content: Text(
-          'Download all ${cert['totalGenerated']} certificates for ${cert['eventTitle']}?',
-          style: AppTextStyles.body1,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generating certificates...'),
+              ],
+            ),
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Downloading certificates...'),
-                ),
-              );
-            },
-            child: const Text('Download'),
-          ),
-        ],
       ),
     );
+
+    try {
+      // Get participants from registrations table (attended status)
+      final registrationsResponse = await Supabase.instance.client
+          .from('registrations')
+          .select()
+          .eq('event_id', event.id)
+          .eq('status', 'attended');
+      
+      // Convert to ParticipantModel format
+      final participants = (registrationsResponse as List).map((json) {
+        return ParticipantModel(
+          id: json['id'] as String,
+          eventId: json['event_id'] as String,
+          studentId: json['student_id'] as String,
+          studentName: json['student_name'] as String,
+          studentNis: json['student_id'] as String, // Using student_id as NIS fallback
+          studentClass: json['student_class'] as String? ?? '',
+          email: json['student_email'] as String? ?? '',
+          phone: json['student_phone'] as String? ?? '',
+          registrationDate: DateTime.parse(json['registered_at'] as String),
+          status: ParticipantStatus.attended,
+          hasCertificate: false,
+        );
+      }).toList();
+      
+      if (participants.isEmpty) {
+        if (!mounted) return;
+        Navigator.pop(context); // Close loading dialog
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Tidak ada peserta yang sudah attended untuk event ini'),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+        return;
+      }
+      
+      // Generate certificates
+      final generated = await _certificateService.generateCertificatesForEvent(
+        event: event,
+        participants: participants,
+        templateId: 'default', // Using default template
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ ${generated.length} sertifikat berhasil digenerate!'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      _loadEvents(); // Refresh list
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  void _viewGeneratedCertificates(EventModel event) async {
+    try {
+      final certificates = await _certificateService.getEventCertificates(event.id);
+      
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Sertifikat - ${event.title}', style: AppTextStyles.heading3),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.8,
+            child: certificates.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('Belum ada sertifikat yang digenerate.'),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: certificates.length,
+                    itemBuilder: (context, index) {
+                      final cert = certificates[index];
+                      return ListTile(
+                        leading: const Icon(Icons.workspace_premium, color: AppColors.primary),
+                        title: Text(cert.participantName),
+                        subtitle: Text(cert.certificateNumber),
+                        trailing: Text(
+                          cert.achievement ?? 'Peserta',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.success,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading certificates: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 }

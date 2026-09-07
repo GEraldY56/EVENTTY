@@ -81,7 +81,7 @@ class _StudentMessagesScreenState extends ConsumerState<StudentMessagesScreen> {
     _initializeChat();
   }
 
-  void _initializeChat() {
+  Future<void> _initializeChat() async {
     final authService = ref.read(authServiceProvider);
     final userId = authService.userId ?? 'unknown';
     final userName = authService.userName ?? 'Student';
@@ -92,59 +92,74 @@ class _StudentMessagesScreenState extends ConsumerState<StudentMessagesScreen> {
       _currentEventId = messageContext.eventId;
     }
     
-    // Get or create conversation
-    _conversationId = _chatService.getOrCreateConversation(
-      userId: userId,
-      userName: userName,
-    );
+    try {
+      // Get or create conversation
+      _conversationId = await _chatService.getOrCreateConversation(
+        userId: userId,
+        userName: userName,
+      );
 
-    // Get conversation mode
-    _conversationMode = _chatService.getConversationMode(_conversationId);
+      // Get conversation mode
+      _conversationMode = await _chatService.getConversationMode(_conversationId);
 
-    // Load existing messages
-    _messages = _chatService.getMessages(_conversationId);
-
-    // Listen to message updates
-    _chatService.getMessagesStream(_conversationId).listen((messages) {
+      // Load existing messages
+      final messages = await _chatService.getMessages(_conversationId);
+      
       if (mounted) {
         setState(() {
-          _messages = _chatService.getMessages(_conversationId);
-          // Update mode from service (in case it changed)
-          _conversationMode = _chatService.getConversationMode(_conversationId);
+          _messages = messages;
         });
-        _scrollToBottom();
       }
-    });
 
-    // Mark as read
-    _chatService.markAsRead(_conversationId, userId);
+      // Listen to message updates
+      _chatService.getMessagesStream(_conversationId).listen((messages) async {
+        if (mounted) {
+          final updatedMessages = await _chatService.getMessages(_conversationId);
+          final updatedMode = await _chatService.getConversationMode(_conversationId);
+          setState(() {
+            _messages = updatedMessages;
+            _conversationMode = updatedMode;
+          });
+          _scrollToBottom();
+        }
+      });
 
-    // If coming from event detail (Tanya Admin), set initial message
-    if (messageContext != null && messageContext.initialMessage != null) {
-      _messageController.text = messageContext.initialMessage!;
-      
-      // Clear context after build is complete
+      // Mark as read
+      await _chatService.markAsRead(_conversationId, userId);
+
+      // If coming from event detail (Tanya Admin), set initial message
+      if (messageContext != null && messageContext.initialMessage != null) {
+        _messageController.text = messageContext.initialMessage!;
+        
+        // Clear context after build is complete
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref.read(messageContextProvider.notifier).state = null;
+        });
+      }
+
+      // Send welcome message if first time
+      if (_messages.isEmpty) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _chatService.sendMessage(
+            conversationId: _conversationId,
+            senderId: 'bot',
+            senderName: 'Eventty Bot',
+            senderRole: 'bot',
+            message: 'Halo! 👋 Saya Eventty Bot, asisten virtual OSIS.\n\nSaya bisa membantu Anda dengan informasi tentang event. Silakan tanyakan apa saja! 😊\n\nJika saya tidak bisa menjawab, Anda bisa langsung berbicara dengan Admin OSIS.',
+          );
+        });
+      }
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(messageContextProvider.notifier).state = null;
+        _scrollToBottom();
       });
-    }
-
-    // Send welcome message if first time
-    if (_messages.isEmpty) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _chatService.sendMessage(
-          conversationId: _conversationId,
-          senderId: 'bot',
-          senderName: 'Eventty Bot',
-          senderRole: 'bot',
-          message: 'Halo! 👋 Saya Eventty Bot, asisten virtual OSIS.\n\nSaya bisa membantu Anda dengan informasi tentang event. Silakan tanyakan apa saja! 😊\n\nJika saya tidak bisa menjawab, Anda bisa langsung berbicara dengan Admin OSIS.',
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error initializing chat: $e')),
         );
-      });
+      }
     }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
   }
 
   @override
@@ -198,7 +213,7 @@ class _StudentMessagesScreenState extends ConsumerState<StudentMessagesScreen> {
       // Show admin suggestion if bot can't answer - STORE LAST BOT MESSAGE ID
       if (botResponse.suggestAdmin) {
         // Get the last message (bot message we just sent)
-        final messages = _chatService.getMessages(_conversationId);
+        final messages = await _chatService.getMessages(_conversationId);
         if (messages.isNotEmpty) {
           final lastBotMessage = messages.last;
           setState(() {
@@ -264,7 +279,6 @@ class _StudentMessagesScreenState extends ConsumerState<StudentMessagesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false, // CRITICAL: false = navbar TIDAK naik!
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Row(
           children: [

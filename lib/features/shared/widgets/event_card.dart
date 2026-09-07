@@ -200,28 +200,21 @@ class EventCard extends StatelessWidget {
     // Use local assets for event images with separate thumbnail files
     String? assetImage;
     
-    switch (category.toLowerCase()) {
-      case 'school event':
-      case 'classmeet':
-        assetImage = 'assets/images/thumbnail/classmeet-th.jpeg';
-        break;
-      case 'sports competition':
-        assetImage = 'assets/images/thumbnail/basket-th.jpeg';
-        break;
-      case 'career development':
-      case 'career day':
-        assetImage = 'assets/images/thumbnail/career-th.jpeg';
-        break;
-      case 'seminar':
-      case 'seminar ai':
-        assetImage = 'assets/images/thumbnail/ai-th.jpeg';
-        break;
-      case 'workshop':
-      case 'workshop coding':
-        assetImage = 'assets/images/thumbnail/workshop-coding-th.jpeg';
-        break;
-      default:
-        assetImage = null; // Will show emoji fallback
+    final categoryLower = category.toLowerCase();
+    
+    // Match dengan category dari database
+    if (categoryLower.contains('basketball') || categoryLower.contains('sport')) {
+      assetImage = 'assets/images/thumbnail/basket-th.jpeg';
+    } else if (categoryLower.contains('career') || categoryLower.contains('education')) {
+      assetImage = 'assets/images/thumbnail/career-th.jpeg';
+    } else if (categoryLower.contains('seminar') || categoryLower.contains('technology') || categoryLower.contains('ai')) {
+      assetImage = 'assets/images/thumbnail/ai-th.jpeg';
+    } else if (categoryLower.contains('workshop') || categoryLower.contains('coding')) {
+      assetImage = 'assets/images/thumbnail/workshop-coding-th.jpeg';
+    } else if (categoryLower.contains('classmeet') || categoryLower.contains('school')) {
+      assetImage = 'assets/images/thumbnail/classmeet-th.jpeg';
+    } else {
+      assetImage = null; // Will show emoji fallback
     }
 
     if (assetImage != null) {

@@ -2,7 +2,7 @@ name: eventy
 description: "School Event Management System - A modern mobile application for managing school activities, competitions, seminars, and workshops."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.12.2
@@ -35,14 +35,14 @@ dependencies:
   
   # QR Code
   qr_flutter: ^4.1.0
-  mobile_scanner: ^5.1.1
+  mobile_scanner: 7.4.0
   
   # PDF
   pdf: ^3.10.8
   printing: ^5.12.0
   
   # File Picker
-  file_picker: ^8.0.3
+  file_picker: ^12.2.0
   
   # Image Picker
   image_picker: ^1.1.2
@@ -57,7 +57,7 @@ dependencies:
   url_launcher: ^6.3.0
   
   # Share
-  share_plus: ^10.1.2
+  share_plus: ^13.3.0
   
   # Smooth Page Indicator
   smooth_page_indicator: ^1.1.0
@@ -68,6 +68,9 @@ dependencies:
   # Shimmer for skeleton loading
   shimmer: ^3.0.0
   
+  # Crypto for hashing
+  crypto: ^3.0.3
+  
   # Calendar
   table_calendar: ^3.1.2
   supabase_flutter: ^2.17.2
@@ -75,6 +78,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.1
 
   flutter_lints: ^6.0.0
   
@@ -97,3 +101,13 @@ flutter:
     - assets/icons/
     - assets/illustrations/
     - .env
+
+
+# Flutter Launcher Icons Configuration
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/logo.jpeg"
+  adaptive_icon_background: "#6366F1"
+  adaptive_icon_foreground: "assets/images/logo.jpeg"
+  remove_alpha_ios: true

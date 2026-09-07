@@ -122,9 +122,7 @@ class EventRulesScreen extends StatelessWidget {
     final rules = _getRules();
     final requirements = _getRequirements();
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),

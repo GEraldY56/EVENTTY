@@ -16,18 +16,25 @@ class _FeaturedEventCarouselState extends State<FeaturedEventCarousel> {
   int _currentPage = 0;
   Timer? _timer;
 
+  // Banner data with assets images - UUID from DATABASE_COMPLETE.sql
   final List<Map<String, dynamic>> _banners = [
     {
-      'eventId': '1', // Classmeet 2024
-      'image': 'assets/images/banner/cm.jpeg',
-    },
-    {
-      'eventId': '3', // Basketball Tournament
+      'eventId': '550e8400-e29b-41d4-a716-446655440001', // Basketball Championship
       'image': 'assets/images/banner/basket-dt.jpeg',
+      'title': 'SMKN 20 Basketball Championship 2024',
+      'category': 'Sport - Basketball',
     },
     {
-      'eventId': '2', // Career Day 2024
+      'eventId': '550e8400-e29b-41d4-a716-446655440002', // Career Day
       'image': 'assets/images/banner/cd.jpeg',
+      'title': 'Career Day 2024 - Future Tech Leaders',
+      'category': 'Education - Career',
+    },
+    {
+      'eventId': '550e8400-e29b-41d4-a716-446655440003', // AI Seminar
+      'image': 'assets/images/banner/cm.jpeg',
+      'title': 'AI Seminar: Artificial Intelligence in Modern Era',
+      'category': 'Technology - Seminar',
     },
   ];
 
@@ -100,8 +107,8 @@ class _FeaturedEventCarouselState extends State<FeaturedEventCarousel> {
   Widget _buildBannerItem(Map<String, dynamic> banner) {
     return GestureDetector(
       onTap: () {
-        // Navigate to event detail menggunakan GoRouter
-        context.push('/events/${banner['eventId']}');
+        final eventId = banner['eventId'] as String;
+        context.push('/events/$eventId');
       },
       child: Container(
         margin: const EdgeInsets.only(right: 4),
@@ -121,7 +128,7 @@ class _FeaturedEventCarouselState extends State<FeaturedEventCarousel> {
             banner['image'] as String,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
-              // Fallback to gradient if image fails to load
+              // Fallback to gradient if image not found
               return Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -134,10 +141,24 @@ class _FeaturedEventCarouselState extends State<FeaturedEventCarousel> {
                   ),
                 ),
                 child: Center(
-                  child: Icon(
-                    Icons.image_not_supported_rounded,
-                    size: 48,
-                    color: Colors.white.withValues(alpha: 0.5),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.image_not_supported_rounded,
+                        size: 48,
+                        color: Colors.white.withValues(alpha: 0.7),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        banner['title'] as String,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );

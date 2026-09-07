@@ -61,10 +61,8 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text('My Events', style: AppTextStyles.heading3),
-        backgroundColor: AppColors.background,
         elevation: 0,
       ),
       body: _isLoading

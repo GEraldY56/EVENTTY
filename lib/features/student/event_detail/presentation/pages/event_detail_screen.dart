@@ -248,14 +248,12 @@ Daftar sekarang di aplikasi Eventty!
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: AppColors.background,
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_event == null) {
       return Scaffold(
-        backgroundColor: AppColors.background,
         appBar: AppBar(
           backgroundColor: AppColors.primary,
           leading: IconButton(
@@ -277,7 +275,6 @@ Daftar sekarang di aplikasi Eventty!
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
           // App Bar with Hero Image
@@ -337,22 +334,84 @@ Daftar sekarang di aplikasi Eventty!
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (_event!.imageUrl != null && _event!.imageUrl!.isNotEmpty)
-                    Image.asset(
-                      _event!.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: _getCategoryColor(),
-                      ),
-                    )
-                  else
-                    Container(color: _getCategoryColor()),
+                  // Background gradient
                   Container(
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.black26, Colors.black54],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                        colors: [
+                          _getCategoryColor(),
+                          _getCategoryColor().withValues(alpha: 0.8),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                  // Event illustration/image
+                  if (_event!.imageUrl != null && _event!.imageUrl!.isNotEmpty)
+                    Positioned(
+                      right: -20,
+                      top: 40,
+                      bottom: 80,
+                      child: Opacity(
+                        opacity: 0.3,
+                        child: Image.asset(
+                          _event!.imageUrl!,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                        ),
+                      ),
+                    ),
+                  // Decorative shapes
+                  Positioned(
+                    right: 40,
+                    top: 60,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 150,
+                    top: 100,
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 30,
+                    top: 80,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                  // Bottom gradient overlay
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 120,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.transparent, Colors.black38],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
                       ),
                     ),
                   ),

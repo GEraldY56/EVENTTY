@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
@@ -721,95 +722,159 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
   void _showCreateAnnouncementDialog() {
     final titleController = TextEditingController();
     final contentController = TextEditingController();
-    String selectedCategory = 'General';
-    String selectedPriority = 'medium';
+    String? selectedEventId; // null = general announcement
     bool isPublished = true;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Create Announcement', style: AppTextStyles.heading3),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Create Announcement', style: AppTextStyles.heading3),
+              const SizedBox(height: 4),
+              Text(
+                'Announcement akan tampil di halaman News untuk semua siswa',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
           content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Title',
-                    border: OutlineInputBorder(),
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title Field
+                  TextField(
+                    controller: titleController,
+                    decoration: InputDecoration(
+                      labelText: 'Judul Announcement *',
+                      hintText: 'Contoh: Perubahan Jadwal Event Basketball',
+                      border: const OutlineInputBorder(),
+                      helperText: 'Judul singkat dan jelas',
+                    ),
+                    maxLength: 100,
                   ),
-                  maxLength: 100,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: contentController,
-                  decoration: const InputDecoration(
-                    labelText: 'Content',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  
+                  // Content Field
+                  TextField(
+                    controller: contentController,
+                    decoration: InputDecoration(
+                      labelText: 'Isi Announcement *',
+                      hintText: 'Jelaskan informasi yang ingin disampaikan...',
+                      border: const OutlineInputBorder(),
+                      helperText: 'Detail lengkap announcement',
+                    ),
+                    maxLines: 5,
+                    maxLength: 500,
                   ),
-                  maxLines: 5,
-                  maxLength: 500,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedCategory,
-                  decoration: const InputDecoration(
-                    labelText: 'Category',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  
+                  // Event Selector (NEW!)
+                  FutureBuilder<List<dynamic>>(
+                    future: _loadEventsForSelection(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const LinearProgressIndicator();
+                      }
+                      
+                      final events = snapshot.data!;
+                      return DropdownButtonFormField<String>(
+                        value: selectedEventId,
+                        decoration: InputDecoration(
+                          labelText: 'Event Terkait (Opsional)',
+                          border: const OutlineInputBorder(),
+                          helperText: 'Kosongkan jika announcement umum',
+                          prefixIcon: const Icon(Icons.event),
+                        ),
+                        hint: const Text('Pilih event atau kosongkan'),
+                        items: [
+                          const DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('📢 Announcement Umum (Semua Siswa)'),
+                          ),
+                          ...events.map((event) => DropdownMenuItem<String>(
+                            value: event['id'],
+                            child: Text('🎯 ${event['title']}'),
+                          )),
+                        ],
+                        onChanged: (value) {
+                          setDialogState(() => selectedEventId = value);
+                        },
+                      );
+                    },
                   ),
-                  items: ['General', 'Event', 'Academic', 'Facility']
-                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setDialogState(() => selectedCategory = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedPriority,
-                  decoration: const InputDecoration(
-                    labelText: 'Priority',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  
+                  // Preview Section
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.info.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 20, color: AppColors.info),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            selectedEventId == null
+                                ? 'Akan muncul di: Tab News (Semua Siswa)'
+                                : 'Akan muncul di: Tab News + Detail Event',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.info,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  items: ['low', 'medium', 'high']
-                      .map((p) => DropdownMenuItem(
-                            value: p,
-                            child: Text(p[0].toUpperCase() + p.substring(1)),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setDialogState(() => selectedPriority = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                SwitchListTile(
-                  title: const Text('Publish immediately'),
-                  value: isPublished,
-                  onChanged: (value) {
-                    setDialogState(() => isPublished = value);
-                  },
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  
+                  // Publish Switch
+                  SwitchListTile(
+                    title: const Text('Publish Sekarang'),
+                    subtitle: Text(
+                      isPublished 
+                          ? 'Siswa langsung bisa lihat' 
+                          : 'Simpan sebagai draft',
+                      style: AppTextStyles.caption,
+                    ),
+                    value: isPublished,
+                    activeColor: AppColors.success,
+                    onChanged: (value) {
+                      setDialogState(() => isPublished = value);
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: const Text('Batal'),
             ),
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: () async {
                 if (titleController.text.trim().isEmpty ||
                     contentController.text.trim().isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please fill all fields')),
+                    const SnackBar(
+                      content: Text('Judul dan isi harus diisi!'),
+                      backgroundColor: AppColors.warning,
+                    ),
                   );
                   return;
                 }
@@ -818,28 +883,31 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
                   await _announcementService.createAnnouncement(
                     title: titleController.text.trim(),
                     content: contentController.text.trim(),
-                    category: selectedCategory,
-                    priority: selectedPriority,
+                    eventId: selectedEventId,
+                    category: selectedEventId != null ? 'Event' : 'General',
+                    priority: 'medium',
                     isPublished: isPublished,
                   );
 
                   if (!mounted) return;
-                  // ignore: use_build_context_synchronously
                   Navigator.pop(context);
-                  // ignore: use_build_context_synchronously
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Announcement created successfully!'),
+                    SnackBar(
+                      content: Text(
+                        isPublished 
+                            ? '✅ Announcement berhasil dipublish!' 
+                            : '💾 Announcement disimpan sebagai draft',
+                      ),
                       backgroundColor: AppColors.success,
+                      duration: const Duration(seconds: 3),
                     ),
                   );
                   _loadAnnouncements();
                 } catch (e) {
                   if (!mounted) return;
-                  // ignore: use_build_context_synchronously
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Failed to create: $e'),
+                      content: Text('❌ Gagal membuat announcement: $e'),
                       backgroundColor: AppColors.error,
                     ),
                   );
@@ -847,20 +915,36 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               ),
-              child: const Text('Create'),
+              icon: Icon(isPublished ? Icons.send : Icons.save),
+              label: Text(isPublished ? 'Publish' : 'Simpan Draft'),
             ),
           ],
         ),
       ),
     );
   }
+  
+  // Helper method to load events for dropdown
+  Future<List<Map<String, dynamic>>> _loadEventsForSelection() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('events')
+          .select('id, title')
+          .eq('is_published', true)
+          .order('date', ascending: false)
+          .limit(20);
+      
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      return [];
+    }
+  }
 
   void _showEditAnnouncementDialog(AnnouncementModel announcement) {
     final titleController = TextEditingController(text: announcement.title);
     final contentController = TextEditingController(text: announcement.content);
-    String selectedCategory = announcement.category ?? 'General';
-    String selectedPriority = announcement.priority ?? 'medium';
     bool isPublished = announcement.isPublished;
 
     showDialog(
@@ -869,85 +953,63 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
         builder: (context, setDialogState) => AlertDialog(
           title: Text('Edit Announcement', style: AppTextStyles.heading3),
           content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Title',
-                    border: OutlineInputBorder(),
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Judul Announcement *',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLength: 100,
                   ),
-                  maxLength: 100,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: contentController,
-                  decoration: const InputDecoration(
-                    labelText: 'Content',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: contentController,
+                    decoration: const InputDecoration(
+                      labelText: 'Isi Announcement *',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 5,
+                    maxLength: 500,
                   ),
-                  maxLines: 5,
-                  maxLength: 500,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedCategory,
-                  decoration: const InputDecoration(
-                    labelText: 'Category',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    title: const Text('Status Publish'),
+                    subtitle: Text(
+                      isPublished 
+                          ? 'Announcement dipublish (siswa bisa lihat)' 
+                          : 'Draft (siswa tidak bisa lihat)',
+                      style: AppTextStyles.caption,
+                    ),
+                    value: isPublished,
+                    activeColor: AppColors.success,
+                    onChanged: (value) {
+                      setDialogState(() => isPublished = value);
+                    },
                   ),
-                  items: ['General', 'Event', 'Academic', 'Facility']
-                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setDialogState(() => selectedCategory = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedPriority,
-                  decoration: const InputDecoration(
-                    labelText: 'Priority',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: ['low', 'medium', 'high']
-                      .map((p) => DropdownMenuItem(
-                            value: p,
-                            child: Text(p[0].toUpperCase() + p.substring(1)),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setDialogState(() => selectedPriority = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                SwitchListTile(
-                  title: const Text('Published'),
-                  value: isPublished,
-                  onChanged: (value) {
-                    setDialogState(() => isPublished = value);
-                  },
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: const Text('Batal'),
             ),
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: () async {
                 if (titleController.text.trim().isEmpty ||
                     contentController.text.trim().isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please fill all fields')),
+                    const SnackBar(
+                      content: Text('Judul dan isi harus diisi!'),
+                      backgroundColor: AppColors.warning,
+                    ),
                   );
                   return;
                 }
@@ -957,28 +1019,23 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
                     announcement.id,
                     title: titleController.text.trim(),
                     content: contentController.text.trim(),
-                    category: selectedCategory,
-                    priority: selectedPriority,
                     isPublished: isPublished,
                   );
 
                   if (!mounted) return;
-                  // ignore: use_build_context_synchronously
                   Navigator.pop(context);
-                  // ignore: use_build_context_synchronously
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Announcement updated successfully!'),
+                      content: Text('✅ Announcement berhasil diupdate!'),
                       backgroundColor: AppColors.success,
                     ),
                   );
                   _loadAnnouncements();
                 } catch (e) {
                   if (!mounted) return;
-                  // ignore: use_build_context_synchronously
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Failed to update: $e'),
+                      content: Text('❌ Gagal update: $e'),
                       backgroundColor: AppColors.error,
                     ),
                   );
@@ -986,8 +1043,10 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               ),
-              child: const Text('Update'),
+              icon: const Icon(Icons.check),
+              label: const Text('Update'),
             ),
           ],
         ),

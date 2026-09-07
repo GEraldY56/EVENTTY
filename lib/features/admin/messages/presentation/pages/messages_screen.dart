@@ -33,10 +33,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
     });
   }
 
-  void _loadConversations() {
-    setState(() {
-      _conversations = _chatService.getAllConversations();
-    });
+  Future<void> _loadConversations() async {
+    final conversations = await _chatService.getAllConversations();
+    if (mounted) {
+      setState(() {
+        _conversations = conversations;
+      });
+    }
   }
 
   @override
@@ -49,8 +52,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
       return name.contains(query) || nis.contains(query);
     }).toList();
 
-    final unreadCount = _chatService.getTotalUnreadCount();
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -58,13 +59,21 @@ class _MessagesScreenState extends State<MessagesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Messages', style: AppTextStyles.heading3),
-            if (unreadCount > 0)
-              Text(
-                '$unreadCount pesan belum dibaca',
-                style: AppTextStyles.captionSmall.copyWith(
-                  color: AppColors.error,
-                ),
-              ),
+            FutureBuilder<int>(
+              future: _chatService.getTotalUnreadCount(),
+              builder: (context, snapshot) {
+                final unreadCount = snapshot.data ?? 0;
+                if (unreadCount > 0) {
+                  return Text(
+                    '$unreadCount pesan belum dibaca',
+                    style: AppTextStyles.captionSmall.copyWith(
+                      color: AppColors.error,
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
           ],
         ),
         backgroundColor: AppColors.background,

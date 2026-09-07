@@ -23,6 +23,7 @@ class RouteNames {
   static const String profile = '/profile';
   static const String notification = '/notification';
   static const String myEvents = '/my-events';
+  static const String bookmarks = '/bookmarks';
 
   // Admin Routes
   static const String adminDashboard = '/admin';

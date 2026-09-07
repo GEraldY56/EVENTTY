@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/notification_model.dart';
 import '../routes/route_names.dart';
+import '../utils/logger.dart';
 
 /// Notification Service
 /// Membuat notification otomatis berdasarkan event/action
@@ -10,64 +12,106 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  // In-memory storage
-  final List<NotificationModel> _notifications = [];
+  final SupabaseClient _supabase = Supabase.instance.client;
   
   // Stream controller untuk real-time updates
   final _notificationsController = StreamController<List<NotificationModel>>.broadcast();
   Stream<List<NotificationModel>> get notificationsStream => _notificationsController.stream;
 
-  /// Get notifications untuk user tertentu
+  /// Get notifications untuk user tertentu dari Supabase
   Future<List<NotificationModel>> getUserNotifications(String userId) async {
-    await Future.delayed(const Duration(milliseconds: 200));
-    return _notifications.where((n) => n.userId == userId).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    try {
+      final response = await _supabase
+          .from('notifications')
+          .select()
+          .eq('userId', userId)
+          .order('createdAt', ascending: false);
+
+      return (response as List)
+          .map((json) => NotificationModel.fromJson(json))
+          .toList();
+    } catch (e) {
+      AppLogger.error('Error fetching notifications', e);
+      return [];
+    }
   }
 
   /// Get unread notifications count
   Future<int> getUnreadCount(String userId) async {
-    await Future.delayed(const Duration(milliseconds: 100));
-    return _notifications.where((n) => n.userId == userId && !n.isRead).length;
+    try {
+      final response = await _supabase
+          .from('notifications')
+          .select()
+          .eq('userId', userId)
+          .eq('isRead', false);
+
+      return (response as List).length;
+    } catch (e) {
+      AppLogger.error('Error fetching unread count', e);
+      return 0;
+    }
   }
 
   /// Mark notification as read
   Future<void> markAsRead(String notificationId) async {
-    final index = _notifications.indexWhere((n) => n.id == notificationId);
-    if (index != -1) {
-      _notifications[index] = _notifications[index].copyWith(isRead: true);
-      _notifyUpdate(_notifications[index].userId);
+    try {
+      await _supabase
+          .from('notifications')
+          .update({'isRead': true})
+          .eq('id', notificationId);
+    } catch (e) {
+      AppLogger.error('Error marking notification as read', e);
     }
   }
 
   /// Mark all notifications as read for a user
   Future<void> markAllAsRead(String userId) async {
-    for (var i = 0; i < _notifications.length; i++) {
-      if (_notifications[i].userId == userId && !_notifications[i].isRead) {
-        _notifications[i] = _notifications[i].copyWith(isRead: true);
-      }
+    try {
+      await _supabase
+          .from('notifications')
+          .update({'isRead': true})
+          .eq('userId', userId)
+          .eq('isRead', false);
+    } catch (e) {
+      AppLogger.error('Error marking all as read', e);
     }
-    _notifyUpdate(userId);
   }
 
   /// Delete notification
   Future<void> deleteNotification(String notificationId) async {
-    final notification = _notifications.firstWhere((n) => n.id == notificationId);
-    _notifications.removeWhere((n) => n.id == notificationId);
-    _notifyUpdate(notification.userId);
+    try {
+      await _supabase
+          .from('notifications')
+          .delete()
+          .eq('id', notificationId);
+    } catch (e) {
+      AppLogger.error('Error deleting notification', e);
+    }
   }
 
   /// Create notification (internal method)
   Future<NotificationModel> _createNotification(NotificationModel notification) async {
-    _notifications.add(notification);
-    _notifyUpdate(notification.userId);
-    return notification;
+    try {
+      await _supabase
+          .from('notifications')
+          .insert(notification.toJson());
+      
+      _notifyUpdate(notification.userId);
+      return notification;
+    } catch (e) {
+      AppLogger.error('Error creating notification', e);
+      rethrow;
+    }
   }
 
   /// Notify stream listeners
-  void _notifyUpdate(String userId) {
-    final userNotifications = _notifications.where((n) => n.userId == userId).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    _notificationsController.add(userNotifications);
+  void _notifyUpdate(String userId) async {
+    try {
+      final userNotifications = await getUserNotifications(userId);
+      _notificationsController.add(userNotifications);
+    } catch (e) {
+      AppLogger.error('Error notifying update', e);
+    }
   }
 
   // ==================== NOTIFICATION CREATORS ====================
@@ -82,19 +126,23 @@ class NotificationService {
     final notifications = <NotificationModel>[];
     
     for (final userId in targetUserIds) {
-      final notification = await _createNotification(
-        NotificationModel(
-          id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
-          userId: userId,
-          type: NotificationType.eventPublished,
-          title: 'New Event Available',
-          message: '$eventTitle is now open for registration!',
-          targetRoute: RouteNames.eventDetail,
-          routeParams: {'id': eventId},
-          referenceId: eventId,
-        ),
-      );
-      notifications.add(notification);
+      try {
+        final notification = await _createNotification(
+          NotificationModel(
+            id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+            userId: userId,
+            type: NotificationType.eventPublished,
+            title: 'New Event Available',
+            message: '$eventTitle is now open for registration!',
+            targetRoute: RouteNames.eventDetail,
+            routeParams: {'id': eventId},
+            referenceId: eventId,
+          ),
+        );
+        notifications.add(notification);
+      } catch (e) {
+        AppLogger.error('Error notifying event published', e);
+      }
     }
     
     return notifications;
@@ -109,19 +157,23 @@ class NotificationService {
     final notifications = <NotificationModel>[];
     
     for (final userId in targetUserIds) {
-      final notification = await _createNotification(
-        NotificationModel(
-          id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
-          userId: userId,
-          type: NotificationType.registrationOpened,
-          title: 'Registration Open',
-          message: 'Registration for $eventTitle is now open. Don\'t miss out!',
-          targetRoute: RouteNames.eventDetail,
-          routeParams: {'id': eventId},
-          referenceId: eventId,
-        ),
-      );
-      notifications.add(notification);
+      try {
+        final notification = await _createNotification(
+          NotificationModel(
+            id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+            userId: userId,
+            type: NotificationType.registrationOpened,
+            title: 'Registration Open',
+            message: 'Registration for $eventTitle is now open. Don\'t miss out!',
+            targetRoute: RouteNames.eventDetail,
+            routeParams: {'id': eventId},
+            referenceId: eventId,
+          ),
+        );
+        notifications.add(notification);
+      } catch (e) {
+        AppLogger.error('Error notifying registration opened', e);
+      }
     }
     
     return notifications;
@@ -177,19 +229,23 @@ class NotificationService {
     final notifications = <NotificationModel>[];
     
     for (final userId in targetUserIds) {
-      final notification = await _createNotification(
-        NotificationModel(
-          id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
-          userId: userId,
-          type: NotificationType.registrationClosed,
-          title: 'Registration Closed',
-          message: 'Registration for $eventTitle is now closed.',
-          targetRoute: RouteNames.eventDetail,
-          routeParams: {'id': eventId},
-          referenceId: eventId,
-        ),
-      );
-      notifications.add(notification);
+      try {
+        final notification = await _createNotification(
+          NotificationModel(
+            id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+            userId: userId,
+            type: NotificationType.registrationClosed,
+            title: 'Registration Closed',
+            message: 'Registration for $eventTitle is now closed.',
+            targetRoute: RouteNames.eventDetail,
+            routeParams: {'id': eventId},
+            referenceId: eventId,
+          ),
+        );
+        notifications.add(notification);
+      } catch (e) {
+        AppLogger.error('Error notifying registration closed', e);
+      }
     }
     
     return notifications;
@@ -208,19 +264,23 @@ class NotificationService {
     final notifications = <NotificationModel>[];
     
     for (final userId in targetUserIds) {
-      final notification = await _createNotification(
-        NotificationModel(
-          id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
-          userId: userId,
-          type: NotificationType.newsPublished,
-          title: 'Important Announcement',
-          message: newsTitle,
-          targetRoute: RouteNames.newsDetail,
-          routeParams: {'id': newsId},
-          referenceId: newsId,
-        ),
-      );
-      notifications.add(notification);
+      try {
+        final notification = await _createNotification(
+          NotificationModel(
+            id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+            userId: userId,
+            type: NotificationType.newsPublished,
+            title: 'Important Announcement',
+            message: newsTitle,
+            targetRoute: RouteNames.newsDetail,
+            routeParams: {'id': newsId},
+            referenceId: newsId,
+          ),
+        );
+        notifications.add(notification);
+      } catch (e) {
+        AppLogger.error('Error notifying news published', e);
+      }
     }
     
     return notifications;
@@ -277,19 +337,23 @@ class NotificationService {
     final notifications = <NotificationModel>[];
     
     for (final userId in targetUserIds) {
-      final notification = await _createNotification(
-        NotificationModel(
-          id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
-          userId: userId,
-          type: NotificationType.eventCancelled,
-          title: 'Event Cancelled',
-          message: '$eventTitle has been cancelled. ${reason ?? ''}',
-          targetRoute: RouteNames.events,
-          routeParams: {},
-          referenceId: eventId,
-        ),
-      );
-      notifications.add(notification);
+      try {
+        final notification = await _createNotification(
+          NotificationModel(
+            id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+            userId: userId,
+            type: NotificationType.eventCancelled,
+            title: 'Event Cancelled',
+            message: '$eventTitle has been cancelled. ${reason ?? ''}',
+            targetRoute: RouteNames.events,
+            routeParams: {},
+            referenceId: eventId,
+          ),
+        );
+        notifications.add(notification);
+      } catch (e) {
+        AppLogger.error('Error notifying event cancelled', e);
+      }
     }
     
     return notifications;
@@ -305,92 +369,34 @@ class NotificationService {
     final notifications = <NotificationModel>[];
     
     for (final userId in targetUserIds) {
-      final notification = await _createNotification(
-        NotificationModel(
-          id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
-          userId: userId,
-          type: NotificationType.eventUpdated,
-          title: 'Event Updated',
-          message: '$eventTitle: $updateMessage',
-          targetRoute: RouteNames.eventDetail,
-          routeParams: {'id': eventId},
-          referenceId: eventId,
-        ),
-      );
-      notifications.add(notification);
+      try {
+        final notification = await _createNotification(
+          NotificationModel(
+            id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+            userId: userId,
+            type: NotificationType.eventUpdated,
+            title: 'Event Updated',
+            message: '$eventTitle: $updateMessage',
+            targetRoute: RouteNames.eventDetail,
+            routeParams: {'id': eventId},
+            referenceId: eventId,
+          ),
+        );
+        notifications.add(notification);
+      } catch (e) {
+        AppLogger.error('Error notifying event updated', e);
+      }
     }
     
     return notifications;
   }
 
-  /// Seed mock notifications
+  /// Seed mock notifications (for testing only - remove in production)
+  @Deprecated('Use real notifications from backend')
   void seedMockNotifications(String userId) {
-    final now = DateTime.now();
-    
-    _notifications.addAll([
-      NotificationModel(
-        id: 'notif_1',
-        userId: userId,
-        type: NotificationType.registrationApproved,
-        title: 'Registration Approved ✓',
-        message: 'Your registration for Career Day 2027 has been approved!',
-        createdAt: now.subtract(const Duration(hours: 2)),
-        isRead: false,
-        targetRoute: RouteNames.myEvents,
-        routeParams: {},
-        referenceId: '2',
-      ),
-      NotificationModel(
-        id: 'notif_2',
-        userId: userId,
-        type: NotificationType.newsPublished,
-        title: 'Important Announcement',
-        message: 'Final Exam Schedule Released - Check the details now',
-        createdAt: now.subtract(const Duration(hours: 5)),
-        isRead: false,
-        targetRoute: RouteNames.newsDetail,
-        routeParams: {'id': 'news_2'},
-        referenceId: 'news_2',
-      ),
-      NotificationModel(
-        id: 'notif_3',
-        userId: userId,
-        type: NotificationType.certificateAvailable,
-        title: 'Certificate Ready 🎓',
-        message: 'Your certificate for Basketball Tournament is now available!',
-        createdAt: now.subtract(const Duration(days: 1)),
-        isRead: false,
-        targetRoute: RouteNames.certificate,
-        routeParams: {},
-        referenceId: 'cert_1',
-      ),
-      NotificationModel(
-        id: 'notif_4',
-        userId: userId,
-        type: NotificationType.eventReminder,
-        title: 'Event Reminder',
-        message: 'AI Seminar starts in 2 days! Don\'t forget to attend.',
-        createdAt: now.subtract(const Duration(days: 1, hours: 3)),
-        isRead: true,
-        targetRoute: RouteNames.eventDetail,
-        routeParams: {'id': '4'},
-        referenceId: '4',
-      ),
-      NotificationModel(
-        id: 'notif_5',
-        userId: userId,
-        type: NotificationType.eventPublished,
-        title: 'New Event Available',
-        message: 'Coding Workshop is now open for registration!',
-        createdAt: now.subtract(const Duration(days: 2)),
-        isRead: true,
-        targetRoute: RouteNames.eventDetail,
-        routeParams: {'id': '5'},
-        referenceId: '5',
-      ),
-    ]);
-    
-    _notifyUpdate(userId);
+    // This method is deprecated and should not be used
+    // Notifications will be created automatically by backend actions
+    AppLogger.warning('seedMockNotifications is deprecated');
   }
 
   /// Dispose

@@ -7,7 +7,7 @@ import '../../features/authentication/register/presentation/pages/register_scree
 import '../../features/authentication/forgot_password/presentation/pages/forgot_password_screen.dart';
 import '../../features/student/home/presentation/pages/home_screen.dart';
 import '../../features/student/events/presentation/pages/events_screen.dart';
-import '../../features/student/event_detail/presentation/pages/event_detail_screen.dart';
+import '../../features/student/event_detail/presentation/pages/event_detail_screen_new.dart';
 import '../../features/student/calendar/presentation/pages/calendar_screen.dart';
 import '../../features/student/my_events/presentation/pages/my_events_screen.dart';
 import '../../features/student/news/presentation/pages/news_screen.dart';
@@ -17,6 +17,7 @@ import '../../features/student/gallery/presentation/pages/gallery_screen.dart';
 import '../../features/student/certificate/presentation/pages/certificate_screen.dart';
 import '../../features/student/profile/presentation/pages/profile_screen.dart';
 import '../../features/student/notification/presentation/pages/notification_screen.dart';
+import '../../features/student/bookmarks/presentation/pages/bookmarks_screen.dart';
 import '../../features/admin/dashboard/presentation/pages/dashboard_screen.dart';
 import '../../features/admin/event_management/presentation/pages/events_list_screen.dart';
 import '../../features/admin/event_management/presentation/pages/create_event_screen.dart';
@@ -31,6 +32,7 @@ import '../../features/admin/certificate/presentation/pages/create_template_scre
 import '../../features/admin/certificate/presentation/pages/template_preview_screen.dart';
 import '../../features/admin/certificate/presentation/pages/select_event_screen.dart';
 import '../../features/admin/certificate/presentation/pages/certificate_list_screen.dart';
+import '../../features/admin/documentation/presentation/pages/documentation_list_screen.dart';
 import '../../features/admin/documentation/presentation/pages/documentation_screen.dart';
 import '../../features/admin/messages/presentation/pages/messages_screen.dart';
 import '../../features/admin/messages/presentation/pages/admin_message_detail_screen.dart';
@@ -90,7 +92,10 @@ class AppRouter {
           ),
           GoRoute(
             path: RouteNames.events,
-            builder: (context, state) => const EventsScreen(),
+            builder: (context, state) {
+              final category = state.uri.queryParameters['category'];
+              return EventsScreen(initialCategory: category);
+            },
           ),
           GoRoute(
             path: RouteNames.news,
@@ -122,7 +127,7 @@ class AppRouter {
         path: RouteNames.eventDetail,
         builder: (context, state) {
           final id = state.pathParameters['id']!;
-          return EventDetailScreen(eventId: id);
+          return EventDetailScreenNew(eventId: id);
         },
       ),
       GoRoute(
@@ -135,6 +140,10 @@ class AppRouter {
       GoRoute(
         path: RouteNames.myEvents,
         builder: (context, state) => const MyEventsScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.bookmarks,
+        builder: (context, state) => const BookmarksScreen(),
       ),
       GoRoute(
         path: RouteNames.notification,
@@ -228,8 +237,14 @@ class AppRouter {
       GoRoute(
         path: RouteNames.adminDocumentation,
         builder: (context, state) {
-          final eventId = state.uri.queryParameters['eventId'] ?? '1';
-          return DocumentationScreen(eventId: eventId);
+          // Check if eventId query param exists
+          final eventId = state.uri.queryParameters['eventId'];
+          if (eventId != null) {
+            // Direct to edit/create documentation for specific event
+            return DocumentationScreen(eventId: eventId);
+          }
+          // Otherwise show event list
+          return const DocumentationListScreen();
         },
       ),
 

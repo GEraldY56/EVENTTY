@@ -112,3 +112,131 @@ class AppColors {
 
 
 
+
+/// Dark Theme Colors
+class AppColorsDark {
+  AppColorsDark._();
+
+  // Background & Surface (Dark)
+  static const Color background = Color(0xFF0F172A); // Dark blue-gray
+  static const Color surface = Color(0xFF1E293B); // Slightly lighter
+  static const Color border = Color(0xFF334155); // Subtle borders
+
+  // Primary Colors (Adjusted for dark mode)
+  static const Color primary = Color(0xFF60A5FA); // Lighter blue
+  static const Color secondary = Color(0xFF93C5FD); // Even lighter
+
+  // Card & Surface
+  static const Color card = Color(0xFF1E293B);
+
+  // Text Colors (Dark mode)
+  static const Color textPrimary = Color(0xFFF1F5F9); // Almost white
+  static const Color textSecondary = Color(0xFFCBD5E1); // Light gray
+  static const Color textTertiary = Color(0xFF94A3B8); // Medium gray
+
+  // Semantic Colors (Same or slightly adjusted)
+  static const Color success = Color(0xFF22C55E);
+  static const Color warning = Color(0xFFFBBF24); // Slightly lighter
+  static const Color error = Color(0xFFF87171); // Slightly lighter
+  static const Color info = Color(0xFF60A5FA);
+
+  // Status Colors
+  static const Color statusOpen = Color(0xFF22C55E);
+  static const Color statusOngoing = Color(0xFF60A5FA);
+  static const Color statusClosed = Color(0xFF64748B);
+
+  // Neutral Shades (Inverted for dark)
+  static const Color neutral50 = Color(0xFF1E293B);
+  static const Color neutral100 = Color(0xFF334155);
+  static const Color neutral200 = Color(0xFF475569);
+  static const Color neutral300 = Color(0xFF64748B);
+  static const Color neutral400 = Color(0xFF94A3B8);
+  static const Color neutral500 = Color(0xFFCBD5E1);
+  static const Color neutral600 = Color(0xFFE2E8F0);
+  static const Color neutral700 = Color(0xFFF1F5F9);
+  static const Color neutral800 = Color(0xFFF8FAFC);
+  static const Color neutral900 = Color(0xFFFFFFFF);
+
+  // Overlay
+  static const Color overlay = Color(0xCC000000); // Darker overlay
+  static const Color overlayLight = Color(0x66000000);
+
+  // Shadow (Lighter shadows for dark mode)
+  static const Color shadowLight = Color(0x1AFFFFFF);
+  static const Color shadowMedium = Color(0x33FFFFFF);
+  static const Color shadowHeavy = Color(0x4DFFFFFF);
+
+  // Category Colors (Keep vibrant)
+  static const Color categoryClassmeet = Color(0xFF60A5FA);
+  static const Color categorySports = Color(0xFFF87171);
+  static const Color categorySeminar = Color(0xFFA78BFA);
+  static const Color categoryWorkshop = Color(0xFF22D3EE);
+  static const Color categoryCareer = Color(0xFFFBBF24);
+  static const Color categoryScience = Color(0xFF4ADE80);
+  static const Color categoryEnglish = Color(0xFFF472B6);
+  static const Color categoryArt = Color(0xFFC084FC);
+  static const Color categoryExtracurricular = Color(0xFF818CF8);
+}
+
+
+/// Extension for context-aware colors (supports dark mode)
+extension AppColorsExtension on BuildContext {
+  /// Get adaptive colors based on current theme
+  AppColorsAdaptive get colors {
+    final isDark = Theme.of(this).brightness == Brightness.dark;
+    return AppColorsAdaptive(isDark);
+  }
+}
+
+/// Adaptive colors class that switches between light and dark
+class AppColorsAdaptive {
+  final bool isDark;
+  
+  const AppColorsAdaptive(this.isDark);
+  
+  // Background & Surface
+  Color get background => isDark ? AppColorsDark.background : AppColors.background;
+  Color get surface => isDark ? AppColorsDark.surface : AppColors.surface;
+  Color get border => isDark ? AppColorsDark.border : AppColors.border;
+  Color get card => isDark ? AppColorsDark.card : AppColors.card;
+  
+  // Primary Colors
+  Color get primary => isDark ? AppColorsDark.primary : AppColors.primary;
+  Color get secondary => isDark ? AppColorsDark.secondary : AppColors.secondary;
+  
+  // Text Colors
+  Color get textPrimary => isDark ? AppColorsDark.textPrimary : AppColors.textPrimary;
+  Color get textSecondary => isDark ? AppColorsDark.textSecondary : AppColors.textSecondary;
+  Color get textTertiary => isDark ? AppColorsDark.textTertiary : AppColors.textTertiary;
+  
+  // Semantic Colors
+  Color get success => isDark ? AppColorsDark.success : AppColors.success;
+  Color get warning => isDark ? AppColorsDark.warning : AppColors.warning;
+  Color get error => isDark ? AppColorsDark.error : AppColors.error;
+  Color get info => isDark ? AppColorsDark.info : AppColors.info;
+  
+  // Status Colors
+  Color get statusOpen => isDark ? AppColorsDark.statusOpen : AppColors.statusOpen;
+  Color get statusOngoing => isDark ? AppColorsDark.statusOngoing : AppColors.statusOngoing;
+  Color get statusClosed => isDark ? AppColorsDark.statusClosed : AppColors.statusClosed;
+  
+  // Neutral Shades
+  Color get neutral50 => isDark ? AppColorsDark.neutral50 : AppColors.neutral50;
+  Color get neutral100 => isDark ? AppColorsDark.neutral100 : AppColors.neutral100;
+  Color get neutral200 => isDark ? AppColorsDark.neutral200 : AppColors.neutral200;
+  Color get neutral300 => isDark ? AppColorsDark.neutral300 : AppColors.neutral300;
+  Color get neutral400 => isDark ? AppColorsDark.neutral400 : AppColors.neutral400;
+  Color get neutral500 => isDark ? AppColorsDark.neutral500 : AppColors.neutral500;
+  Color get neutral600 => isDark ? AppColorsDark.neutral600 : AppColors.neutral600;
+  Color get neutral700 => isDark ? AppColorsDark.neutral700 : AppColors.neutral700;
+  Color get neutral800 => isDark ? AppColorsDark.neutral800 : AppColors.neutral800;
+  Color get neutral900 => isDark ? AppColorsDark.neutral900 : AppColors.neutral900;
+  
+  // Category Colors (same for both themes for consistency)
+  Color get categoryClassmeet => AppColors.categoryClassmeet;
+  Color get categorySports => AppColors.categorySports;
+  Color get categorySeminar => AppColors.categorySeminar;
+  Color get categoryWorkshop => AppColors.categoryWorkshop;
+  Color get categoryCareer => AppColors.categoryCareer;
+  Color get categoryScience => AppColors.categoryScience;
+}

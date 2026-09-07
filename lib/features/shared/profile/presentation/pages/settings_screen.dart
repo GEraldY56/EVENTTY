@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
+import '../../../../../core/providers/theme_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -15,7 +16,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _notificationsEnabled = true;
   bool _emailNotifications = true;
   bool _pushNotifications = true;
-  bool _darkMode = false;
 
   @override
   Widget build(BuildContext context) {
@@ -100,14 +100,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             'Enable dark theme',
             Icons.dark_mode_outlined,
             Switch(
-              value: _darkMode,
+              value: ref.watch(isDarkModeProvider),
               onChanged: (value) {
-                setState(() => _darkMode = value);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Dark mode coming soon!'),
-                  ),
-                );
+                ref.read(themeModeProvider.notifier).toggleTheme();
               },
               activeColor: AppColors.primary,
             ),

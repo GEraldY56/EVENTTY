@@ -4,13 +4,14 @@ import 'package:shimmer/shimmer.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
-import '../../../../../core/routes/route_names.dart';
 import '../../../../../core/services/event_service.dart';
 import '../../../../../core/models/event_model.dart';
 import '../../../../shared/widgets/event_card.dart';
 
 class EventsScreen extends StatefulWidget {
-  const EventsScreen({super.key});
+  final String? initialCategory;
+  
+  const EventsScreen({super.key, this.initialCategory});
 
   @override
   State<EventsScreen> createState() => _EventsScreenState();
@@ -26,17 +27,27 @@ class _EventsScreenState extends State<EventsScreen> {
   List<EventModel> _allEvents = [];
   String? _errorMessage;
   
-  final List<String> _categories = [
-    'All',
-    'Sport',
-    'Education',
-    'Technology',
-    'Art',
+  final List<Map<String, String>> _categories = [
+    {'name': 'All', 'slug': 'all'},
+    {'name': 'Classmeet', 'slug': 'classmeet'},
+    {'name': 'Sports', 'slug': 'sports'},
+    {'name': 'Seminar', 'slug': 'seminar'},
+    {'name': 'Workshop', 'slug': 'workshop'},
+    {'name': 'Career', 'slug': 'career'},
+    {'name': 'Science', 'slug': 'science'},
   ];
 
   @override
   void initState() {
     super.initState();
+    // Set initial category dari navigation parameter
+    if (widget.initialCategory != null) {
+      final matchedCategory = _categories.firstWhere(
+        (cat) => cat['slug'] == widget.initialCategory,
+        orElse: () => _categories[0],
+      );
+      _selectedCategory = matchedCategory['name']!;
+    }
     _loadEvents();
   }
 
@@ -73,9 +84,7 @@ class _EventsScreenState extends State<EventsScreen> {
     // Filter by category
     if (_selectedCategory != 'All') {
       filtered = filtered.where((event) {
-        // Extract main category from "Category - Subcategory" format
-        final mainCategory = event.category.split(' - ').first;
-        return mainCategory.toLowerCase().contains(_selectedCategory.toLowerCase());
+        return event.category.toLowerCase().contains(_selectedCategory.toLowerCase());
       }).toList();
     }
 
@@ -96,11 +105,9 @@ class _EventsScreenState extends State<EventsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text('Events', style: AppTextStyles.heading3),
-        backgroundColor: AppColors.background,
-      ),
+        ),
       body: SafeArea(
         child: Column(
           children: [
@@ -172,14 +179,15 @@ class _EventsScreenState extends State<EventsScreen> {
                 itemCount: _categories.length,
                 itemBuilder: (context, index) {
                   final category = _categories[index];
-                  final isSelected = _selectedCategory == category;
+                  final categoryName = category['name']!;
+                  final isSelected = _selectedCategory == categoryName;
                   
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: GestureDetector(
                       onTap: () {
                         setState(() {
-                          _selectedCategory = category;
+                          _selectedCategory = categoryName;
                         });
                       },
                       child: Container(
@@ -196,7 +204,7 @@ class _EventsScreenState extends State<EventsScreen> {
                         ),
                         child: Center(
                           child: Text(
-                            category,
+                            categoryName,
                             style: AppTextStyles.body2.copyWith(
                               color: isSelected ? Colors.white : AppColors.textPrimary,
                               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
@@ -311,8 +319,9 @@ class _EventsScreenState extends State<EventsScreen> {
                           status: event.status,
                           currentParticipants: event.registered,
                           maxParticipants: event.capacity,
+                          imageUrl: _getThumbnailFromDetailImage(event.imageUrl),
                           onTap: () {
-                            context.push(RouteNames.eventDetail.replaceAll(':id', event.id));
+                            context.push('/events/${event.id}');
                           },
                         ),
                       );
@@ -325,6 +334,21 @@ class _EventsScreenState extends State<EventsScreen> {
         ),
       ),
     );
+  }
+
+  // Convert detail image path to thumbnail path
+  String? _getThumbnailFromDetailImage(String? detailImagePath) {
+    if (detailImagePath == null || detailImagePath.isEmpty) return null;
+    
+    // Map detail images to thumbnails
+    final thumbnailMap = {
+      'assets/images/detail/basket.jpeg': 'assets/images/thumbnail/basket-th.jpeg',
+      'assets/images/detail/career.jpeg': 'assets/images/thumbnail/career-th.jpeg',
+      'assets/images/detail/seminar.jpeg': 'assets/images/thumbnail/ai-th.jpeg',
+      'assets/images/detail/workcod.jpeg': 'assets/images/thumbnail/workshop-coding-th.jpeg',
+    };
+    
+    return thumbnailMap[detailImagePath] ?? detailImagePath;
   }
 
   Widget _buildEventSkeleton() {

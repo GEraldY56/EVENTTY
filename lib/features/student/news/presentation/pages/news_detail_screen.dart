@@ -143,7 +143,6 @@ class NewsDetailScreen extends StatelessWidget {
     final hasImage = news['image'] != null;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
           // App Bar with Image or Gradient

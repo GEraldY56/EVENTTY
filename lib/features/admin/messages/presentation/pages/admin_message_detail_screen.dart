@@ -30,32 +30,47 @@ class _AdminMessageDetailScreenState extends State<AdminMessageDetailScreen> {
     _initializeChat();
   }
 
-  void _initializeChat() {
-    // Load existing messages
-    _messages = _chatService.getMessages(widget.conversationId);
-    
-    // Get conversation info
-    final conversations = _chatService.getAllConversations();
-    _conversationInfo = conversations
-        .firstWhere((c) => c.info.conversationId == widget.conversationId)
-        .info;
-
-    // Listen to message updates
-    _chatService.getMessagesStream(widget.conversationId).listen((messages) {
+  Future<void> _initializeChat() async {
+    try {
+      // Load existing messages
+      final messages = await _chatService.getMessages(widget.conversationId);
+      
+      // Get conversation info
+      final conversations = await _chatService.getAllConversations();
+      final conversation = conversations
+          .firstWhere((c) => c.info.conversationId == widget.conversationId);
+      
       if (mounted) {
         setState(() {
-          _messages = _chatService.getMessages(widget.conversationId);
+          _messages = messages;
+          _conversationInfo = conversation.info;
         });
-        _scrollToBottom();
       }
-    });
 
-    // Mark as read
-    _chatService.markAsRead(widget.conversationId, 'admin');
+      // Listen to message updates
+      _chatService.getMessagesStream(widget.conversationId).listen((messages) async {
+        if (mounted) {
+          final updatedMessages = await _chatService.getMessages(widget.conversationId);
+          setState(() {
+            _messages = updatedMessages;
+          });
+          _scrollToBottom();
+        }
+      });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
+      // Mark as read
+      await _chatService.markAsRead(widget.conversationId, 'admin');
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToBottom();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading chat: $e')),
+        );
+      }
+    }
   }
 
   @override

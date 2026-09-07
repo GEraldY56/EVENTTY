@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
 import '../../../../../core/routes/route_names.dart';
 import '../../../../../core/providers/auth_provider.dart';
+import '../../../../../core/providers/theme_provider.dart';
+import '../../../../../core/services/avatar_service.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -15,7 +18,6 @@ class ProfileScreen extends ConsumerWidget {
     final authService = ref.read(authServiceProvider);
     
     return Scaffold(
-      backgroundColor: AppColors.background,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text('Profile', style: AppTextStyles.heading3),
@@ -52,7 +54,7 @@ class ProfileScreen extends ConsumerWidget {
           _buildBackgroundHeader(),
           
           // Scrollable Content
-          _buildScrollableContent(authService, context),
+          _buildScrollableContent(authService, context, ref),
         ],
       ),
     );
@@ -85,7 +87,7 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   // Scrollable Content Widget
-  Widget _buildScrollableContent(dynamic authService, BuildContext context) {
+  Widget _buildScrollableContent(dynamic authService, BuildContext context, WidgetRef ref) {
     return ListView(
       padding: EdgeInsets.zero,
       children: [
@@ -100,7 +102,7 @@ class ProfileScreen extends ConsumerWidget {
         const SizedBox(height: 24),
         
         // Settings Section
-        _buildSettingsSection(authService, context),
+        _buildSettingsSection(authService, context, ref),
         const SizedBox(height: 32),
       ],
     );
@@ -127,39 +129,41 @@ class ProfileScreen extends ConsumerWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Avatar
+            // AI Avatar
             CircleAvatar(
               radius: 38,
               backgroundColor: Colors.white,
               child: ClipOval(
-                child: Image.asset(
-                  'assets/images/profile.png',
+                child: SvgPicture.network(
+                  AvatarService().generateConsistentAvatarUrl(
+                    userId: authService.userId ?? 'default',
+                    userName: authService.userName ?? 'User',
+                    size: 200,
+                  ),
                   width: 72,
                   height: 72,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: 72,
-                      height: 72,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF8B5CF6), Color(0xFFA855F7)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        shape: BoxShape.circle,
+                  placeholderBuilder: (context) => Container(
+                    width: 72,
+                    height: 72,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF8B5CF6), Color(0xFFA855F7)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      child: Center(
-                        child: Text(
-                          authService.userName?.substring(0, 1).toUpperCase() ?? 'U',
-                          style: AppTextStyles.heading1.copyWith(
-                            color: Colors.white,
-                            fontSize: 32,
-                          ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        authService.userName?.substring(0, 1).toUpperCase() ?? 'U',
+                        style: AppTextStyles.heading1.copyWith(
+                          color: Colors.white,
+                          fontSize: 32,
                         ),
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -270,7 +274,7 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   // Settings Section Widget
-  Widget _buildSettingsSection(dynamic authService, BuildContext context) {
+  Widget _buildSettingsSection(dynamic authService, BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -301,6 +305,8 @@ class ProfileScreen extends ConsumerWidget {
                   context.push(RouteNames.editProfile);
                 }, isFirst: true),
                 Divider(height: 1, color: AppColors.border),
+                _buildThemeToggle(ref),
+                Divider(height: 1, color: AppColors.border),
                 _buildMenuItemInCard(Icons.lock_outline, 'Change Password', () {
                   context.push(RouteNames.changePassword);
                 }),
@@ -326,6 +332,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
         ),
+        
         const SizedBox(height: 12),
         
         Padding(
@@ -423,6 +430,51 @@ class ProfileScreen extends ConsumerWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ],
+      ),
+    );
+  }
+
+  // Theme Toggle Widget
+  Widget _buildThemeToggle(WidgetRef ref) {
+    final isDarkMode = ref.watch(isDarkModeProvider);
+    
+    return InkWell(
+      onTap: () {
+        ref.read(themeModeProvider.notifier).toggleTheme();
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.primary10,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                color: AppColors.primary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Dark Mode',
+                style: AppTextStyles.body1,
+              ),
+            ),
+            Switch(
+              value: isDarkMode,
+              onChanged: (value) {
+                ref.read(themeModeProvider.notifier).toggleTheme();
+              },
+              activeColor: AppColors.primary,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -24,6 +24,16 @@ class QuickActions extends StatelessWidget {
         Expanded(
           child: _buildActionButton(
             context,
+            icon: Icons.bookmark_rounded,
+            label: 'Bookmarks',
+            color: AppColors.secondary,
+            onTap: () => context.push(RouteNames.bookmarks),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildActionButton(
+            context,
             icon: Icons.workspace_premium_rounded,
             label: 'Certificate',
             color: AppColors.warning,
@@ -38,16 +48,6 @@ class QuickActions extends StatelessWidget {
             label: 'Calendar',
             color: AppColors.success,
             onTap: () => context.push(RouteNames.calendar),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildActionButton(
-            context,
-            icon: Icons.campaign_rounded,
-            label: 'News',
-            color: AppColors.error,
-            onTap: () => context.push(RouteNames.news),
           ),
         ),
       ],

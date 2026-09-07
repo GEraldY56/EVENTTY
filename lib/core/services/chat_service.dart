@@ -1,80 +1,117 @@
 import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Chat Service - Handle live chat between admin and students
+/// Chat Service - Handle live chat between admin and students using Supabase
 class ChatService {
-  // Singleton pattern
-  static final ChatService _instance = ChatService._internal();
-  factory ChatService() => _instance;
-  ChatService._internal();
+  final _supabase = Supabase.instance.client;
 
-  // Stream controller for real-time updates
+  // Stream controllers for real-time updates
   final _messagesController = StreamController<List<ChatMessage>>.broadcast();
   final _conversationsController = StreamController<List<Conversation>>.broadcast();
 
-  // In-memory storage (replace with database/Firebase in production)
-  final Map<String, List<ChatMessage>> _conversations = {};
-  final Map<String, ConversationInfo> _conversationInfos = {};
+  RealtimeChannel? _messagesSubscription;
+  RealtimeChannel? _conversationsSubscription;
+
+  /// Initialize realtime subscriptions
+  void initializeRealtimeSubscriptions() {
+    // Subscribe to messages changes
+    _messagesSubscription = _supabase
+        .channel('messages_changes')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'messages',
+          callback: (_) => _notifyMessagesUpdate(),
+        )
+        .subscribe();
+
+    // Subscribe to conversations changes
+    _conversationsSubscription = _supabase
+        .channel('conversations_changes')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'conversations',
+          callback: (_) => _notifyConversationsUpdate(),
+        )
+        .subscribe();
+  }
 
   /// Get messages stream for a conversation
   Stream<List<ChatMessage>> getMessagesStream(String conversationId) {
     return _messagesController.stream;
   }
 
-  /// Get all conversations (for admin)
+  /// Get all conversations stream (for admin)
   Stream<List<Conversation>> getConversationsStream() {
     return _conversationsController.stream;
   }
 
   /// Get or create conversation between user and admin
-  String getOrCreateConversation({
+  Future<String> getOrCreateConversation({
     required String userId,
     required String userName,
-  }) {
-    final conversationId = 'conv_$userId';
-    
-    if (!_conversations.containsKey(conversationId)) {
-      _conversations[conversationId] = [];
-      _conversationInfos[conversationId] = ConversationInfo(
-        conversationId: conversationId,
-        userId: userId,
-        userName: userName,
-        userRole: 'student',
-        lastMessage: 'Mulai percakapan',
-        lastMessageTime: DateTime.now(),
-        unreadCount: 0,
-        isOnline: true,
-        mode: 'bot', // Default to bot mode
-      );
+    String? eventId,
+    String? eventTitle,
+  }) async {
+    try {
+      // Check if conversation exists
+      final existing = await _supabase
+          .from('conversations')
+          .select()
+          .eq('student_id', userId)
+          .maybeSingle();
+
+      if (existing != null) {
+        return existing['id'];
+      }
+
+      // Create new conversation
+      final response = await _supabase
+          .from('conversations')
+          .insert({
+            'student_id': userId,
+            'student_name': userName,
+            'event_id': eventId,
+            'event_title': eventTitle,
+            'mode': 'bot',
+            'last_message': 'Conversation started',
+            'last_message_at': DateTime.now().toIso8601String(),
+          })
+          .select()
+          .single();
+
+      return response['id'];
+    } catch (e) {
+      throw Exception('Failed to create conversation: $e');
     }
-    
-    return conversationId;
   }
 
   /// Get conversation mode
-  String getConversationMode(String conversationId) {
-    return _conversationInfos[conversationId]?.mode ?? 'bot';
+  Future<String> getConversationMode(String conversationId) async {
+    try {
+      final response = await _supabase
+          .from('conversations')
+          .select('mode')
+          .eq('id', conversationId)
+          .single();
+
+      return response['mode'] ?? 'bot';
+    } catch (e) {
+      return 'bot';
+    }
   }
 
   /// Set conversation mode
   Future<bool> setConversationMode(String conversationId, String mode) async {
     try {
-      if (_conversationInfos.containsKey(conversationId)) {
-        final info = _conversationInfos[conversationId]!;
-        _conversationInfos[conversationId] = ConversationInfo(
-          conversationId: info.conversationId,
-          userId: info.userId,
-          userName: info.userName,
-          userRole: info.userRole,
-          lastMessage: info.lastMessage,
-          lastMessageTime: info.lastMessageTime,
-          unreadCount: info.unreadCount,
-          isOnline: info.isOnline,
-          mode: mode,
-        );
-        _notifyConversationsUpdate();
-        return true;
-      }
-      return false;
+      await _supabase
+          .from('conversations')
+          .update({'mode': mode, 'updated_at': DateTime.now().toIso8601String()})
+          .eq('id', conversationId);
+
+      _notifyConversationsUpdate();
+      return true;
     } catch (e) {
       return false;
     }
@@ -85,46 +122,30 @@ class ChatService {
     required String conversationId,
     required String senderId,
     required String senderName,
-    required String senderRole, // 'student', 'admin', or 'bot'
+    required String senderRole,
     required String message,
-    String? eventId,
   }) async {
     try {
-      final chatMessage = ChatMessage(
-        id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
-        conversationId: conversationId,
-        senderId: senderId,
-        senderName: senderName,
-        senderRole: senderRole,
-        message: message,
-        timestamp: DateTime.now(),
-        isRead: false,
-      );
+      // Insert message
+      await _supabase.from('messages').insert({
+        'conversation_id': conversationId,
+        'sender_id': senderId,
+        'sender_name': senderName,
+        'sender_role': senderRole,
+        'message': message,
+      });
 
-      if (!_conversations.containsKey(conversationId)) {
-        _conversations[conversationId] = [];
-      }
+      // Update conversation last message
+      await _supabase
+          .from('conversations')
+          .update({
+            'last_message': message,
+            'last_message_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', conversationId);
 
-      _conversations[conversationId]!.add(chatMessage);
-
-      // Update conversation info
-      if (_conversationInfos.containsKey(conversationId)) {
-        final info = _conversationInfos[conversationId]!;
-        _conversationInfos[conversationId] = ConversationInfo(
-          conversationId: info.conversationId,
-          userId: info.userId,
-          userName: info.userName,
-          userRole: info.userRole,
-          lastMessage: message,
-          lastMessageTime: DateTime.now(),
-          unreadCount: senderRole == 'student' ? info.unreadCount + 1 : info.unreadCount,
-          isOnline: info.isOnline,
-          mode: info.mode, // Preserve mode
-        );
-      }
-
-      // Notify listeners
-      _messagesController.add(_conversations[conversationId]!);
+      _notifyMessagesUpdate();
       _notifyConversationsUpdate();
 
       return true;
@@ -134,63 +155,95 @@ class ChatService {
   }
 
   /// Get messages for a conversation
-  List<ChatMessage> getMessages(String conversationId) {
-    return _conversations[conversationId] ?? [];
+  Future<List<ChatMessage>> getMessages(String conversationId) async {
+    try {
+      final response = await _supabase
+          .from('messages')
+          .select()
+          .eq('conversation_id', conversationId)
+          .order('created_at', ascending: true);
+
+      return (response as List)
+          .map((json) => ChatMessage.fromJson(json))
+          .toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   /// Get all conversations (for admin)
-  List<Conversation> getAllConversations() {
-    return _conversationInfos.entries.map((entry) {
-      final messages = _conversations[entry.key] ?? [];
-      return Conversation(
-        info: entry.value,
-        messages: messages,
-      );
-    }).toList()
-      ..sort((a, b) => b.info.lastMessageTime.compareTo(a.info.lastMessageTime));
+  Future<List<Conversation>> getAllConversations() async {
+    try {
+      final response = await _supabase
+          .from('conversations')
+          .select()
+          .eq('is_active', true)
+          .order('last_message_at', ascending: false);
+
+      List<Conversation> conversations = [];
+
+      for (var convJson in response as List) {
+        final messages = await getMessages(convJson['id']);
+        conversations.add(Conversation(
+          info: ConversationInfo.fromJson(convJson),
+          messages: messages,
+        ));
+      }
+
+      return conversations;
+    } catch (e) {
+      return [];
+    }
   }
 
   /// Mark messages as read
   Future<void> markAsRead(String conversationId, String userId) async {
-    if (_conversations.containsKey(conversationId)) {
-      for (var message in _conversations[conversationId]!) {
-        if (message.senderId != userId) {
-          message.isRead = true;
-        }
-      }
+    try {
+      await _supabase
+          .from('messages')
+          .update({'is_read': true})
+          .eq('conversation_id', conversationId)
+          .neq('sender_id', userId);
 
-      // Reset unread count
-      if (_conversationInfos.containsKey(conversationId)) {
-        final info = _conversationInfos[conversationId]!;
-        _conversationInfos[conversationId] = ConversationInfo(
-          conversationId: info.conversationId,
-          userId: info.userId,
-          userName: info.userName,
-          userRole: info.userRole,
-          lastMessage: info.lastMessage,
-          lastMessageTime: info.lastMessageTime,
-          unreadCount: 0,
-          isOnline: info.isOnline,
-          mode: info.mode, // Preserve mode
-        );
-      }
+      await _supabase
+          .from('conversations')
+          .update({'unread_count': 0})
+          .eq('id', conversationId);
 
-      _messagesController.add(_conversations[conversationId]!);
+      _notifyMessagesUpdate();
       _notifyConversationsUpdate();
+    } catch (e) {
+      // Handle error silently
     }
   }
 
   /// Get total unread count (for admin)
-  int getTotalUnreadCount() {
-    return _conversationInfos.values
-        .fold(0, (sum, info) => sum + info.unreadCount);
+  Future<int> getTotalUnreadCount() async {
+    try {
+      final response = await _supabase
+          .from('conversations')
+          .select('unread_count')
+          .eq('is_active', true);
+
+      int total = 0;
+      for (var conv in response as List) {
+        total += (conv['unread_count'] as int?) ?? 0;
+      }
+
+      return total;
+    } catch (e) {
+      return 0;
+    }
   }
 
   /// Delete conversation
   Future<bool> deleteConversation(String conversationId) async {
     try {
-      _conversations.remove(conversationId);
-      _conversationInfos.remove(conversationId);
+      await _supabase
+          .from('conversations')
+          .update({'is_active': false})
+          .eq('id', conversationId);
+
       _notifyConversationsUpdate();
       return true;
     } catch (e) {
@@ -198,13 +251,21 @@ class ChatService {
     }
   }
 
+  /// Notify messages update
+  void _notifyMessagesUpdate() async {
+    // Implement if needed for specific conversation
+  }
+
   /// Notify conversations update
-  void _notifyConversationsUpdate() {
-    _conversationsController.add(getAllConversations());
+  void _notifyConversationsUpdate() async {
+    final conversations = await getAllConversations();
+    _conversationsController.add(conversations);
   }
 
   /// Dispose
   void dispose() {
+    _messagesSubscription?.unsubscribe();
+    _conversationsSubscription?.unsubscribe();
     _messagesController.close();
     _conversationsController.close();
   }
@@ -216,7 +277,7 @@ class ChatMessage {
   final String conversationId;
   final String senderId;
   final String senderName;
-  final String senderRole; // 'admin' or 'student'
+  final String senderRole;
   final String message;
   final DateTime timestamp;
   bool isRead;
@@ -231,6 +292,19 @@ class ChatMessage {
     required this.timestamp,
     this.isRead = false,
   });
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: json['id'],
+      conversationId: json['conversation_id'],
+      senderId: json['sender_id'] ?? '',
+      senderName: json['sender_name'],
+      senderRole: json['sender_role'],
+      message: json['message'],
+      timestamp: DateTime.parse(json['created_at']),
+      isRead: json['is_read'] ?? false,
+    );
+  }
 }
 
 /// Conversation Info Model
@@ -238,24 +312,38 @@ class ConversationInfo {
   final String conversationId;
   final String userId;
   final String userName;
-  final String userRole;
+  final String? eventId;
+  final String? eventTitle;
   final String lastMessage;
   final DateTime lastMessageTime;
   final int unreadCount;
-  final bool isOnline;
-  final String mode; // 'bot' or 'admin'
+  final String mode;
 
   ConversationInfo({
     required this.conversationId,
     required this.userId,
     required this.userName,
-    required this.userRole,
+    this.eventId,
+    this.eventTitle,
     required this.lastMessage,
     required this.lastMessageTime,
     required this.unreadCount,
-    required this.isOnline,
-    this.mode = 'bot', // Default to bot mode
+    this.mode = 'bot',
   });
+
+  factory ConversationInfo.fromJson(Map<String, dynamic> json) {
+    return ConversationInfo(
+      conversationId: json['id'],
+      userId: json['student_id'],
+      userName: json['student_name'],
+      eventId: json['event_id'],
+      eventTitle: json['event_title'],
+      lastMessage: json['last_message'] ?? '',
+      lastMessageTime: DateTime.parse(json['last_message_at']),
+      unreadCount: json['unread_count'] ?? 0,
+      mode: json['mode'] ?? 'bot',
+    );
+  }
 }
 
 /// Conversation Model (Info + Messages)

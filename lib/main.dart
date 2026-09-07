@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
-import 'core/constants/theme.dart';
+import 'core/theme/app_theme.dart';
 import 'core/services/auth_service.dart';
 import 'core/routes/app_router.dart';
 import 'core/providers/auth_provider.dart';
+import 'core/providers/theme_provider.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -14,6 +16,9 @@ import 'core/config/supabase_config.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize date formatting for locale
+  await initializeDateFormatting('id_ID', null);
 
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(
@@ -55,7 +60,7 @@ Future<void> main() async {
 // Supabase client
 final supabase = Supabase.instance.client;
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   final SharedPreferences prefs;
 
   const MyApp({
@@ -64,14 +69,17 @@ class MyApp extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final authService = AuthService(prefs);
     final router = AppRouter(authService).router;
+    final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
       title: 'EVENTY',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
       routerConfig: router,
     );
   }

@@ -33,13 +33,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final prefs = await SharedPreferences.getInstance();
     _userId = prefs.getString('userId') ?? '12345';
     
-    // Seed mock notifications if empty
-    final notifications = await _notificationService.getUserNotifications(_userId);
-    if (notifications.isEmpty) {
-      _notificationService.seedMockNotifications(_userId);
-    }
-    
-    // Load notifications
+    // Load notifications from Supabase
     _notifications = await _notificationService.getUserNotifications(_userId);
     
     setState(() => _isLoading = false);
@@ -85,18 +79,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: AppColors.background,
         body: Center(child: CircularProgressIndicator()),
       );
     }
     
     if (_notifications.isEmpty) {
       return Scaffold(
-        backgroundColor: AppColors.background,
         appBar: AppBar(
           title: Text('Notifications', style: AppTextStyles.heading3),
-          backgroundColor: AppColors.background,
-        ),
+          ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -129,7 +120,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final unreadCount = _notifications.where((n) => !n.isRead).length;
     
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,7 +132,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
               ),
           ],
         ),
-        backgroundColor: AppColors.background,
         actions: [
           if (unreadCount > 0)
             TextButton(

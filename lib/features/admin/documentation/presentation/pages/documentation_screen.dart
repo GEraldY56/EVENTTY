@@ -47,29 +47,35 @@ class _DocumentationScreenState extends State<DocumentationScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     
-    // Seed mock data if needed
-    final hasData = await _documentationService.hasDocumentation('1');
-    if (!hasData) {
-      _documentationService.seedMockDocumentations();
+    try {
+      // Load event data
+      final event = await _eventService.getEventById(widget.eventId);
+      _eventTitle = event?.title ?? 'Event';
+      
+      // Load documentation
+      _documentation = await _documentationService.getDocumentationByEventId(widget.eventId);
+      
+      if (_documentation != null) {
+        _titleController.text = _documentation!.title;
+        _descriptionController.text = _documentation!.description;
+        _urlController.text = _documentation!.googleDriveUrl;
+      } else {
+        // Pre-fill title with event name
+        _titleController.text = '$_eventTitle Documentation';
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading data: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
-    
-    // Load event data
-    final event = await _eventService.getEventById(widget.eventId);
-    _eventTitle = event?.title ?? 'Event';
-    
-    // Load documentation
-    _documentation = await _documentationService.getDocumentationByEventId(widget.eventId);
-    
-    if (_documentation != null) {
-      _titleController.text = _documentation!.title;
-      _descriptionController.text = _documentation!.description;
-      _urlController.text = _documentation!.googleDriveUrl;
-    } else {
-      // Pre-fill title with event name
-      _titleController.text = '$_eventTitle Documentation';
-    }
-    
-    setState(() => _isLoading = false);
   }
 
   Future<void> _handleSave() async {
@@ -192,6 +198,45 @@ class _DocumentationScreenState extends State<DocumentationScreen> {
     }
   }
 
+  Widget _buildInfoStep(String number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: AppColors.info,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: AppTextStyles.captionSmall.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                text,
+                style: AppTextStyles.body2.copyWith(color: AppColors.info),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -222,33 +267,76 @@ class _DocumentationScreenState extends State<DocumentationScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.info.withValues(alpha: 0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.event, color: AppColors.info),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.event, color: AppColors.primary, size: 20),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Event',
+                            'Dokumentasi untuk:',
                             style: AppTextStyles.caption.copyWith(
-                              color: AppColors.info,
+                              color: AppColors.primary,
                             ),
                           ),
+                          const SizedBox(height: 2),
                           Text(
                             _eventTitle,
                             style: AppTextStyles.titleMedium.copyWith(
-                              color: AppColors.info,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
                     ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Info: How students see it
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline, color: AppColors.info, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Cara Siswa Melihat:',
+                          style: AppTextStyles.titleSmall.copyWith(
+                            color: AppColors.info,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildInfoStep('1', 'Siswa buka Home → Pilih Event'),
+                    _buildInfoStep('2', 'Klik event untuk masuk ke Detail Event'),
+                    _buildInfoStep('3', 'Scroll ke bawah ke bagian "Dokumentasi"'),
+                    _buildInfoStep('4', 'Klik tombol "Lihat Dokumentasi" untuk buka Google Drive'),
                   ],
                 ),
               ),

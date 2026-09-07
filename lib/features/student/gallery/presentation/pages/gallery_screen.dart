@@ -9,11 +9,9 @@ class GalleryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text('Gallery', style: AppTextStyles.heading3),
-        backgroundColor: AppColors.background,
-      ),
+        ),
       body: GridView.builder(
         padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

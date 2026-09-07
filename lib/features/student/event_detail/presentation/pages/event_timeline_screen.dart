@@ -18,9 +18,7 @@ class EventTimelineScreen extends StatelessWidget {
     final timelineItems = _generateTimeline();
     
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),

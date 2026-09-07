@@ -28,7 +28,6 @@ class HomeScreen extends ConsumerWidget {
     final totalBottomSpace = bottomNavBarHeight + bottomInset;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       body: Stack(
         children: [
           // Decorative Background Gradient (Top)

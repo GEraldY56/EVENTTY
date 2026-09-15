@@ -39,7 +39,10 @@ class DocumentationService {
         'event_id': documentation.eventId,
         'title': documentation.title,
         'description': documentation.description,
-        'google_drive_url': documentation.googleDriveUrl,
+        'file_type': documentation.fileType,
+        'file_url': documentation.fileUrl,
+        'file_size': documentation.fileSize,
+        'uploaded_by': documentation.uploadedBy,
       };
 
       final response = await _supabase
@@ -60,7 +63,9 @@ class DocumentationService {
       final data = {
         'title': documentation.title,
         'description': documentation.description,
-        'google_drive_url': documentation.googleDriveUrl,
+        'file_type': documentation.fileType,
+        'file_url': documentation.fileUrl,
+        'file_size': documentation.fileSize,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
@@ -106,8 +111,8 @@ class DocumentationService {
     }
   }
 
-  /// Validate Google Drive URL
-  bool isValidGoogleDriveUrl(String url) {
+  /// Validate file URL
+  bool isValidFileUrl(String url) {
     if (url.isEmpty) return false;
     return url.startsWith('http://') || url.startsWith('https://');
   }

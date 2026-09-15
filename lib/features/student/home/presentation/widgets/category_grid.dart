@@ -2,48 +2,49 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
+import '../../../../../core/routes/route_names.dart';
 import '../../../../../core/constants/spacing.dart';
-import '../../../../../core/constants/strings.dart';
+import '../../../../../core/utils/category_mapper.dart';
 
 class CategoryGrid extends StatelessWidget {
   const CategoryGrid({super.key});
 
   static const List<Map<String, dynamic>> _categories = [
     {
-      'name': AppStrings.categoryClassmeet,
+      'name': 'Sekolah',
       'icon': Icons.school,
-      'color': AppColors.categoryClassmeet,
-      'slug': 'classmeet',
+      'color': AppColors.categoryCareer,
+      'value': CategoryMapper.sekolah,
     },
     {
-      'name': AppStrings.categorySports,
-      'icon': Icons.sports_basketball,
-      'color': AppColors.categorySports,
-      'slug': 'sports',
+      'name': 'Harian',
+      'icon': Icons.today,
+      'color': AppColors.categoryWorkshop,
+      'value': CategoryMapper.harian,
     },
     {
-      'name': AppStrings.categorySeminar,
+      'name': 'Seminar',
       'icon': Icons.mic,
       'color': AppColors.categorySeminar,
-      'slug': 'seminar',
+      'value': CategoryMapper.seminar,
     },
     {
-      'name': AppStrings.categoryWorkshop,
+      'name': 'Workshop',
       'icon': Icons.construction,
       'color': AppColors.categoryWorkshop,
-      'slug': 'workshop',
+      'value': CategoryMapper.workshop,
     },
     {
-      'name': AppStrings.categoryCareer,
-      'icon': Icons.work,
-      'color': AppColors.categoryCareer,
-      'slug': 'career',
+      'name': 'Kompetisi',
+      'icon': Icons.sports_basketball,
+      'color': AppColors.categorySports,
+      'value': CategoryMapper.kompetisi,
     },
     {
-      'name': AppStrings.categoryScience,
-      'icon': Icons.science,
+      'name': 'Lainnya',
+      'icon': Icons.more_horiz,
       'color': AppColors.categoryScience,
-      'slug': 'science',
+      'value': CategoryMapper.lainnya,
     },
   ];
 
@@ -72,14 +73,14 @@ class CategoryGrid extends StatelessWidget {
     return InkWell(
       onTap: () {
         // Navigate ke events screen dengan category filter
-        context.push('/events?category=${category['slug']}');
+        context.push('${RouteNames.events}?category=${category['value']}');
       },
       borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: context.colors.card,
           borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: context.colors.border),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -104,7 +105,8 @@ class CategoryGrid extends StatelessWidget {
                 category['name'],
                 style: AppTextStyles.captionSmall.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: context.colors.textPrimary,
+                  fontSize: 11,
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
+import '../../../../../core/routes/route_names.dart';
 import '../../../../../core/services/registration_service.dart';
 import '../../../../../core/services/event_service.dart';
 import '../../../../../core/models/registration_model.dart';
@@ -122,12 +123,12 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () => context.go('/student'),
+            onPressed: () => context.go(RouteNames.home),
             icon: const Icon(Icons.explore),
             label: const Text('Jelajahi Event'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: Colors.white, // Keep white on primary button
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -245,7 +246,7 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => context.push('/student/event/${event.id}'),
+                    onPressed: () => context.push(RouteNames.eventDetail.replaceAll(':id', event.id)),
                     icon: const Icon(Icons.info_outline, size: 18),
                     label: const Text('Detail Event'),
                     style: OutlinedButton.styleFrom(
@@ -267,7 +268,7 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
                       label: const Text('Batalkan'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.error,
-                        foregroundColor: Colors.white,
+                        foregroundColor: Colors.white, // Keep white on error button
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -415,7 +416,7 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
                             child: Icon(
                               isLeader ? Icons.star : Icons.person,
                               size: 14,
-                              color: isLeader ? Colors.white : AppColors.primary,
+                              color: isLeader ? Colors.white : AppColors.primary, // Keep white on primary circle
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -448,7 +449,7 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
                               child: Text(
                                 'Ketua',
                                 style: AppTextStyles.captionSmall.copyWith(
-                                  color: Colors.white,
+                                  color: Colors.white, // Keep white on primary badge
                                   fontWeight: FontWeight.bold,
                                   fontSize: 10,
                                 ),

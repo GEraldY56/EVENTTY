@@ -74,7 +74,7 @@ class MessageService {
         'student_name': studentName,
         'event_id': eventId,
         'event_title': eventTitle,
-        'mode': 'bot',
+        'mode': 'admin', // Default to 'admin' for Student ↔ Admin chat (no bot)
         'is_active': true,
         'unread_count': 0,
       };
@@ -106,7 +106,9 @@ class MessageService {
     }
   }
 
-  /// Switch conversation mode (bot <-> admin)
+  /// Switch conversation mode (admin mode only - bot removed in PHASE 2)
+  /// Note: This method kept for backward compatibility with Database V3.2
+  /// In V3.3, 'mode' column should be removed entirely
   Future<void> switchConversationMode(String conversationId, String mode) async {
     try {
       await _supabase.from('conversations').update({

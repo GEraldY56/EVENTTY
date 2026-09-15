@@ -130,10 +130,6 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: () => Navigator.pop(context),
-                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
@@ -640,24 +636,33 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
               leading: const Icon(Icons.all_inclusive),
               title: const Text('All Announcements'),
               onTap: () {
+                if (!mounted) return;
                 setState(() => _selectedFilter = 'All');
-                Navigator.pop(context);
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                }
               },
             ),
             ListTile(
               leading: const Icon(Icons.public),
               title: const Text('Published Only'),
               onTap: () {
+                if (!mounted) return;
                 setState(() => _selectedFilter = 'Published');
-                Navigator.pop(context);
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                }
               },
             ),
             ListTile(
               leading: const Icon(Icons.drafts),
               title: const Text('Drafts Only'),
               onTap: () {
+                if (!mounted) return;
                 setState(() => _selectedFilter = 'Draft');
-                Navigator.pop(context);
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                }
               },
             ),
             const SizedBox(height: 16),
@@ -889,7 +894,7 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
                     isPublished: isPublished,
                   );
 
-                  if (!mounted) return;
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -904,7 +909,7 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
                   );
                   _loadAnnouncements();
                 } catch (e) {
-                  if (!mounted) return;
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('❌ Gagal membuat announcement: $e'),
@@ -1022,7 +1027,7 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
                     isPublished: isPublished,
                   );
 
-                  if (!mounted) return;
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -1032,7 +1037,7 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
                   );
                   _loadAnnouncements();
                 } catch (e) {
-                  if (!mounted) return;
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('❌ Gagal update: $e'),
@@ -1098,10 +1103,8 @@ class _AnnouncementScreenState extends State<AnnouncementScreen> with SingleTick
             onPressed: () async {
               try {
                 await _announcementService.deleteAnnouncement(id);
-                if (!mounted) return;
-                // ignore: use_build_context_synchronously
+                if (!context.mounted) return;
                 Navigator.pop(context);
-                // ignore: use_build_context_synchronously
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Announcement deleted successfully'),

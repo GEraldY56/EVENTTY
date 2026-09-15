@@ -47,12 +47,11 @@ class _AdminMessageDetailScreenState extends State<AdminMessageDetailScreen> {
         });
       }
 
-      // Listen to message updates
-      _chatService.getMessagesStream(widget.conversationId).listen((messages) async {
+      // Listen to message updates - realtime
+      _chatService.getMessagesStream(widget.conversationId).listen((messages) {
         if (mounted) {
-          final updatedMessages = await _chatService.getMessages(widget.conversationId);
           setState(() {
-            _messages = updatedMessages;
+            _messages = messages;
           });
           _scrollToBottom();
         }
@@ -75,6 +74,7 @@ class _AdminMessageDetailScreenState extends State<AdminMessageDetailScreen> {
 
   @override
   void dispose() {
+    _chatService.disposeConversation(widget.conversationId);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -86,10 +86,14 @@ class _AdminMessageDetailScreenState extends State<AdminMessageDetailScreen> {
     final message = _messageController.text.trim();
     _messageController.clear();
 
+    // Get admin user ID from Supabase auth
+    final adminUserId = _chatService.getCurrentUserId();
+    
+
     // Send message through chat service
     await _chatService.sendMessage(
       conversationId: widget.conversationId,
-      senderId: 'admin',
+      senderId: adminUserId,
       senderName: 'Admin OSIS',
       senderRole: 'admin',
       message: message,

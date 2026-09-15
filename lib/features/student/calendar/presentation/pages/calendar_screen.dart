@@ -17,7 +17,7 @@ class CalendarScreen extends ConsumerStatefulWidget {
 }
 
 class _CalendarScreenState extends ConsumerState<CalendarScreen> {
-  CalendarFormat _calendarFormat = CalendarFormat.month;
+  final CalendarFormat _calendarFormat = CalendarFormat.month;
   final EventService _eventService = EventService();
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
@@ -376,7 +376,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   Widget _buildEventCard(EventModel event) {
     return InkWell(
       onTap: () {
-        context.push('${RouteNames.eventDetail}/${event.id}');
+        context.push(RouteNames.eventDetail.replaceAll(':id', event.id));
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(

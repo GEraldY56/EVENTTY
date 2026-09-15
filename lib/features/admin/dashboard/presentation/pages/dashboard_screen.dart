@@ -1,17 +1,157 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
 import '../../../../../core/routes/route_names.dart';
 import '../../../../../core/providers/auth_provider.dart';
+import '../../../../../core/services/event_service.dart';
+import '../../../../../core/services/registration_service.dart';
+import '../../../../../core/models/event_model.dart';
+import '../../../../../core/models/registration_model.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  final _eventService = EventService();
+  final _registrationService = RegistrationService();
+  final _supabase = Supabase.instance.client;
+
+  // Stats
+  int _totalEvents = 0;
+  int _activeEvents = 0;
+  int _totalParticipants = 0;
+  int _pendingRegistrations = 0;
+
+  // Today's events
+  List<EventModel> _todayEvents = [];
+
+  // State
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  // ================================================================
+  // LOAD DASHBOARD DATA
+  // ================================================================
+
+  Future<void> _loadDashboardData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Fetch all data in parallel for performance
+      final results = await Future.wait([
+        _fetchTotalEvents(),
+        _fetchActiveEvents(),
+        _fetchTotalParticipants(),
+        _fetchPendingRegistrations(),
+        _fetchTodayEvents(),
+      ]);
+
+      if (!mounted) return;
+
+      setState(() {
+        _totalEvents = results[0] as int;
+        _activeEvents = results[1] as int;
+        _totalParticipants = results[2] as int;
+        _pendingRegistrations = results[3] as int;
+        _todayEvents = results[4] as List<EventModel>;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Gagal memuat data dashboard. Silakan coba lagi.';
+      });
+    }
+  }
+
+  // ================================================================
+  // FETCH METHODS
+  // ================================================================
+
+  /// Total Events = COUNT(*) FROM events WHERE is_published = true
+  Future<int> _fetchTotalEvents() async {
+    final events = await _eventService.getAllEvents();
+    return events.where((e) => e.isPublished).length;
+  }
+
+  /// Active Events = COUNT(*) FROM events
+  /// WHERE status='open' AND is_published=true AND is_registration_open=true
+  Future<int> _fetchActiveEvents() async {
+    final events = await _eventService.getAllEvents();
+    return events
+        .where((e) =>
+            e.status.toLowerCase() == 'open' &&
+            e.isPublished &&
+            e.isRegistrationOpen)
+        .length;
+  }
+
+  /// Total Participants = COUNT(*) FROM participants
+  /// WHERE status IN ('approved', 'attended')
+  Future<int> _fetchTotalParticipants() async {
+    try {
+      final response = await _supabase
+          .from('participants')
+          .select()
+          .inFilter('status', ['approved', 'attended']);
+
+      return (response as List).length;
+    } catch (e) {
+      // If participants query fails, return 0
+      return 0;
+    }
+  }
+
+  /// Pending Registrations = COUNT(*) FROM registrations WHERE status='pending'
+  Future<int> _fetchPendingRegistrations() async {
+    final registrations = await _registrationService.getAllRegistrations();
+    return registrations
+        .where((r) => r.status == RegistrationStatus.pending)
+        .length;
+  }
+
+  /// Today's Events = SELECT * FROM events
+  /// WHERE DATE(date) = CURRENT_DATE AND is_published = true
+  /// ORDER BY time
+  Future<List<EventModel>> _fetchTodayEvents() async {
+    final events = await _eventService.getAllEvents();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    return events
+        .where((e) {
+          final eventDate = DateTime(e.date.year, e.date.month, e.date.day);
+          return eventDate == today && e.isPublished;
+        })
+        .toList()
+      ..sort((a, b) => a.time.compareTo(b.time));
+  }
+
+  // ================================================================
+  // BUILD
+  // ================================================================
+
+  @override
+  Widget build(BuildContext context) {
     final authService = ref.read(authServiceProvider);
 
     return Scaffold(
@@ -53,307 +193,360 @@ class DashboardScreen extends ConsumerWidget {
               ),
             ),
           ),
-          
+
           // Main Content
           SafeArea(
-            child: CustomScrollView(
-              slivers: [
-                // Header
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: AppSpacing.paddingLG),
-                        Text(
-                          'Dashboard',
-                          style: AppTextStyles.heading1,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Welcome back, ${authService.userName}',
-                          style: AppTextStyles.body1.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: AppSpacing.sectionGap),
-                ),
-
-                // Statistics Cards
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.horizontalPadding,
-                    ),
-                    child: GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      childAspectRatio: 1.5,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      children: [
-                        _buildStatCard(
-                          'Total Events',
-                          '24',
-                          Icons.event,
-                          AppColors.categoryClassmeet,
-                        ),
-                        _buildStatCard(
-                          'Active Events',
-                          '8',
-                          Icons.event_available,
-                          AppColors.success,
-                        ),
-                        _buildStatCard(
-                          'Participants',
-                          '456',
-                          Icons.people,
-                          AppColors.info,
-                        ),
-                        _buildStatCard(
-                          'Pending',
-                          '12',
-                          Icons.pending,
-                          AppColors.warning,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: AppSpacing.sectionGap),
-                ),
-
-                // Quick Menu
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.horizontalPadding,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Quick Menu',
-                          style: AppTextStyles.heading3,
-                        ),
-                        const SizedBox(height: AppSpacing.paddingLG),
-                        
-                        // Main Quick Menu (2x2 Grid)
-                        GridView.count(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: 2,
-                          childAspectRatio: 1.2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          children: [
-                            _buildQuickMenuItem(
-                              context,
-                              'Buat Event',
-                              Icons.add_circle,
-                              AppColors.primary,
-                              () => context.push(RouteNames.adminCreateEvent),
-                            ),
-                            _buildQuickMenuItem(
-                              context,
-                              'Pengumuman',
-                              Icons.campaign,
-                              AppColors.info,
-                              () => context.go(RouteNames.adminAnnouncement),
-                            ),
-                            _buildQuickMenuItem(
-                              context,
-                              'Peserta',
-                              Icons.people,
-                              AppColors.success,
-                              () => context.go(RouteNames.adminParticipants),
-                            ),
-                            _buildQuickMenuItem(
-                              context,
-                              'Sertifikat',
-                              Icons.workspace_premium,
-                              AppColors.secondary,
-                              () => context.push(RouteNames.adminCertificate),
-                            ),
-                          ],
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Secondary Access
-                        Text(
-                          'Akses Lainnya',
-                          style: AppTextStyles.titleMedium.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildSecondaryMenuItem(
-                                context,
-                                'Dokumentasi',
-                                Icons.folder_open,
-                                AppColors.categoryWorkshop,
-                                () => context.push(RouteNames.adminDocumentation),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildSecondaryMenuItem(
-                                context,
-                                'Messages',
-                                Icons.message,
-                                AppColors.categorySports,
-                                () => context.push(RouteNames.adminMessages),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: AppSpacing.sectionGap),
-                ),
-
-                // Today's Events
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.horizontalPadding,
-                    ),
-                    child: Text(
-                      "Today's Events",
-                      style: AppTextStyles.heading3,
-                    ),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: AppSpacing.paddingLG),
-                ),
-
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.horizontalPadding,
-                  ),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
-                          padding: const EdgeInsets.all(AppSpacing.paddingLG),
-                          decoration: BoxDecoration(
-                            color: AppColors.card,
-                            borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary10,
-                                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                                ),
-                                child: Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        '${6 + index}',
-                                        style: AppTextStyles.heading3.copyWith(
-                                          color: AppColors.primary,
-                                        ),
-                                      ),
-                                      Text(
-                                        'AUG',
-                                        style: AppTextStyles.captionSmall.copyWith(
-                                          color: AppColors.primary,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: AppSpacing.paddingLG),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Event Today ${index + 1}',
-                                      style: AppTextStyles.titleMedium,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '08:00 - 12:00 WIB',
-                                      style: AppTextStyles.body2,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.success10,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        'Ongoing',
-                                        style: AppTextStyles.captionSmall.copyWith(
-                                          color: AppColors.success,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Icon(
-                                Icons.chevron_right,
-                                color: AppColors.textTertiary,
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      childCount: 3,
-                    ),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 100),
-                ),
-              ],
-            ),
+            child: _isLoading
+                ? _buildLoadingState()
+                : _errorMessage != null
+                    ? _buildErrorState()
+                    : _buildLoadedState(authService),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  // ================================================================
+  // LOADING STATE
+  // ================================================================
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text(
+            'Memuat data dashboard...',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================================================================
+  // ERROR STATE
+  // ================================================================
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              color: AppColors.error,
+              size: 64,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage ?? 'Terjadi kesalahan',
+              style: AppTextStyles.body1.copyWith(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadDashboardData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Coba Lagi'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ================================================================
+  // LOADED STATE
+  // ================================================================
+
+  Widget _buildLoadedState(dynamic authService) {
+    return CustomScrollView(
+      slivers: [
+        // Header
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: AppSpacing.paddingLG),
+                Text(
+                  'Dashboard',
+                  style: AppTextStyles.heading1,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Welcome back, ${authService.userName}',
+                  style: AppTextStyles.body1.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SliverToBoxAdapter(
+          child: SizedBox(height: AppSpacing.sectionGap),
+        ),
+
+        // Statistics Cards
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.horizontalPadding,
+            ),
+            child: GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              childAspectRatio: 1.5,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              children: [
+                _buildStatCard(
+                  'Total Events',
+                  '$_totalEvents',
+                  Icons.event,
+                  AppColors.categoryClassmeet,
+                ),
+                _buildStatCard(
+                  'Active Events',
+                  '$_activeEvents',
+                  Icons.event_available,
+                  AppColors.success,
+                ),
+                _buildStatCard(
+                  'Participants',
+                  '$_totalParticipants',
+                  Icons.people,
+                  AppColors.info,
+                ),
+                _buildStatCard(
+                  'Pending',
+                  '$_pendingRegistrations',
+                  Icons.pending,
+                  AppColors.warning,
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SliverToBoxAdapter(
+          child: SizedBox(height: AppSpacing.sectionGap),
+        ),
+
+        // Quick Menu
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.horizontalPadding,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Quick Menu',
+                  style: AppTextStyles.heading3,
+                ),
+                const SizedBox(height: AppSpacing.paddingLG),
+
+                // Main Quick Menu (2x2 Grid)
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  childAspectRatio: 1.2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  children: [
+                    _buildQuickMenuItem(
+                      context,
+                      'Buat Event',
+                      Icons.add_circle,
+                      AppColors.primary,
+                      () => context.push(RouteNames.adminCreateEvent),
+                    ),
+                    _buildQuickMenuItem(
+                      context,
+                      'Pengumuman',
+                      Icons.campaign,
+                      AppColors.info,
+                      () => context.go(RouteNames.adminAnnouncement),
+                    ),
+                    _buildQuickMenuItem(
+                      context,
+                      'Peserta',
+                      Icons.people,
+                      AppColors.success,
+                      () => context.go(RouteNames.adminParticipants),
+                    ),
+                    _buildQuickMenuItem(
+                      context,
+                      'Sertifikat',
+                      Icons.workspace_premium,
+                      AppColors.secondary,
+                      () => context.push(RouteNames.adminCertificate),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // Secondary Access
+                Text(
+                  'Akses Lainnya',
+                  style: AppTextStyles.titleMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildSecondaryMenuItem(
+                        context,
+                        'Dokumentasi',
+                        Icons.folder_open,
+                        AppColors.categoryWorkshop,
+                        () => context.push(RouteNames.adminDocumentation),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildSecondaryMenuItem(
+                        context,
+                        'Messages',
+                        Icons.message,
+                        AppColors.categorySports,
+                        () => context.push(RouteNames.adminMessages),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SliverToBoxAdapter(
+          child: SizedBox(height: AppSpacing.sectionGap),
+        ),
+
+        // Today's Events Section
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.horizontalPadding,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Today's Events",
+                  style: AppTextStyles.heading3,
+                ),
+                if (_todayEvents.isNotEmpty)
+                  Text(
+                    '${_todayEvents.length} event${_todayEvents.length > 1 ? 's' : ''}',
+                    style: AppTextStyles.body2.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        const SliverToBoxAdapter(
+          child: SizedBox(height: AppSpacing.paddingLG),
+        ),
+
+        // Today's Events List or Empty State
+        _todayEvents.isEmpty
+            ? SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.horizontalPadding,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.event_busy,
+                          size: 48,
+                          color: AppColors.textTertiary,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Tidak ada event hari ini',
+                          style: AppTextStyles.titleMedium.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Event yang dijadwalkan hari ini akan muncul di sini',
+                          style: AppTextStyles.body2.copyWith(
+                            color: AppColors.textTertiary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            : SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.horizontalPadding,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final event = _todayEvents[index];
+                      return _buildTodayEventCard(event);
+                    },
+                    childCount: _todayEvents.length,
+                  ),
+                ),
+              ),
+
+        const SliverToBoxAdapter(
+          child: SizedBox(height: 100),
+        ),
+      ],
+    );
+  }
+
+  // ================================================================
+  // STAT CARD
+  // ================================================================
+
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
@@ -380,7 +573,7 @@ class DashboardScreen extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(  
+          Container(
             width: 40,
             height: 40,
             decoration: BoxDecoration(
@@ -414,6 +607,116 @@ class DashboardScreen extends ConsumerWidget {
       ),
     );
   }
+
+  // ================================================================
+  // TODAY'S EVENT CARD
+  // ================================================================
+
+  Widget _buildTodayEventCard(EventModel event) {
+    // Determine status color
+    Color statusColor;
+    String statusText;
+
+    if (event.status.toLowerCase() == 'ongoing') {
+      statusColor = AppColors.success;
+      statusText = 'Ongoing';
+    } else if (event.status.toLowerCase() == 'open') {
+      statusColor = AppColors.info;
+      statusText = 'Upcoming';
+    } else {
+      statusColor = AppColors.textTertiary;
+      statusText = 'Closed';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          // Date indicator
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: AppColors.primary10,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${event.date.day}',
+                    style: AppTextStyles.heading3.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  Text(
+                    _getMonthAbbreviation(event.date.month),
+                    style: AppTextStyles.captionSmall.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.paddingLG),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.title,
+                  style: AppTextStyles.titleMedium,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  event.time,
+                  style: AppTextStyles.body2,
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: AppTextStyles.captionSmall.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right,
+            color: AppColors.textTertiary,
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================================================================
+  // QUICK MENU ITEMS
+  // ================================================================
 
   Widget _buildQuickMenuItem(
     BuildContext context,
@@ -508,5 +811,27 @@ class DashboardScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  // ================================================================
+  // HELPERS
+  // ================================================================
+
+  String _getMonthAbbreviation(int month) {
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC'
+    ];
+    return months[month - 1];
   }
 }

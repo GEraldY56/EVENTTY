@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
+import '../../../../../core/routes/route_names.dart';
 import '../../../../../core/services/registration_service.dart';
 import '../../../../../core/services/event_service.dart';
 import '../../../../../core/services/bookmark_service.dart';
@@ -141,7 +142,7 @@ Daftar sekarang di aplikasi Eventty!
     );
     
     // Navigate ke messages
-    context.go('/messages');
+    context.go(RouteNames.messages);
   }
 
   void _showRegistrationDialog() {

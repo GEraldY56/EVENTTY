@@ -1,18 +1,15 @@
 import 'package:intl/intl.dart';
 
-/// Message Model for Chat System
+/// Message Model for Chat System - Maps to messages table in Database V3.2
 class MessageModel {
   final String id;
   final String conversationId;
   final String senderId;
   final String senderName;
-  final String senderRole; // 'student' or 'admin'
-  final String receiverId;
+  final String senderRole; // 'student', 'admin', or 'bot'
   final String message;
-  final DateTime timestamp;
+  final DateTime createdAt;
   final bool isRead;
-  final String? eventId;
-  final String? eventTitle;
 
   MessageModel({
     required this.id,
@@ -20,47 +17,41 @@ class MessageModel {
     required this.senderId,
     required this.senderName,
     required this.senderRole,
-    required this.receiverId,
     required this.message,
-    DateTime? timestamp,
+    DateTime? createdAt,
     this.isRead = false,
-    this.eventId,
-    this.eventTitle,
-  }) : timestamp = timestamp ?? DateTime.now();
+  }) : createdAt = createdAt ?? DateTime.now();
 
   bool get isFromStudent => senderRole == 'student';
   bool get isFromAdmin => senderRole == 'admin';
+  bool get isFromBot => senderRole == 'bot';
 
-  String get formattedTime => DateFormat('HH:mm').format(timestamp);
-  String get formattedDate => DateFormat('d MMM yyyy').format(timestamp);
-  String get formattedDateTime => DateFormat('d MMM, HH:mm').format(timestamp);
+  String get formattedTime => DateFormat('HH:mm').format(createdAt);
+  String get formattedDate => DateFormat('d MMM yyyy').format(createdAt);
+  String get formattedDateTime => DateFormat('d MMM, HH:mm').format(createdAt);
 
+  /// Convert to JSON for Supabase (snake_case)
   Map<String, dynamic> toJson() => {
         'id': id,
-        'conversationId': conversationId,
-        'senderId': senderId,
-        'senderName': senderName,
-        'senderRole': senderRole,
-        'receiverId': receiverId,
+        'conversation_id': conversationId,
+        'sender_id': senderId,
+        'sender_name': senderName,
+        'sender_role': senderRole,
         'message': message,
-        'timestamp': timestamp.toIso8601String(),
-        'isRead': isRead,
-        'eventId': eventId,
-        'eventTitle': eventTitle,
+        'created_at': createdAt.toIso8601String(),
+        'is_read': isRead,
       };
 
+  /// Create from JSON from Supabase (snake_case)
   factory MessageModel.fromJson(Map<String, dynamic> json) => MessageModel(
         id: json['id'] as String,
-        conversationId: json['conversationId'] as String,
-        senderId: json['senderId'] as String,
-        senderName: json['senderName'] as String,
-        senderRole: json['senderRole'] as String,
-        receiverId: json['receiverId'] as String,
+        conversationId: json['conversation_id'] as String,
+        senderId: json['sender_id'] as String,
+        senderName: json['sender_name'] as String,
+        senderRole: json['sender_role'] as String,
         message: json['message'] as String,
-        timestamp: DateTime.parse(json['timestamp'] as String),
-        isRead: json['isRead'] as bool? ?? false,
-        eventId: json['eventId'] as String?,
-        eventTitle: json['eventTitle'] as String?,
+        createdAt: DateTime.parse(json['created_at'] as String),
+        isRead: json['is_read'] as bool? ?? false,
       );
 
   MessageModel copyWith({
@@ -69,12 +60,9 @@ class MessageModel {
     String? senderId,
     String? senderName,
     String? senderRole,
-    String? receiverId,
     String? message,
-    DateTime? timestamp,
+    DateTime? createdAt,
     bool? isRead,
-    String? eventId,
-    String? eventTitle,
   }) {
     return MessageModel(
       id: id ?? this.id,
@@ -82,72 +70,125 @@ class MessageModel {
       senderId: senderId ?? this.senderId,
       senderName: senderName ?? this.senderName,
       senderRole: senderRole ?? this.senderRole,
-      receiverId: receiverId ?? this.receiverId,
       message: message ?? this.message,
-      timestamp: timestamp ?? this.timestamp,
+      createdAt: createdAt ?? this.createdAt,
       isRead: isRead ?? this.isRead,
-      eventId: eventId ?? this.eventId,
-      eventTitle: eventTitle ?? this.eventTitle,
     );
   }
 }
 
-/// Conversation Model (untuk list conversations)
+/// Conversation Model - Maps to conversations table in Database V3.2
 class ConversationModel {
   final String id;
   final String studentId;
   final String studentName;
-  final String? lastMessage;
-  final DateTime? lastMessageTime;
-  final int unreadCount;
   final String? eventId;
   final String? eventTitle;
+  final String mode; // 'admin' or 'bot'
+  final String? lastMessage;
+  final DateTime? lastMessageAt;
+  final int unreadCount;
+  final bool isActive;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   ConversationModel({
     required this.id,
     required this.studentId,
     required this.studentName,
-    this.lastMessage,
-    this.lastMessageTime,
-    this.unreadCount = 0,
     this.eventId,
     this.eventTitle,
-  });
+    this.mode = 'admin',
+    this.lastMessage,
+    this.lastMessageAt,
+    this.unreadCount = 0,
+    this.isActive = true,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   String get formattedLastTime {
-    if (lastMessageTime == null) return '';
+    if (lastMessageAt == null) return '';
     final now = DateTime.now();
-    final diff = now.difference(lastMessageTime!);
+    final diff = now.difference(lastMessageAt!);
 
     if (diff.inMinutes < 1) return 'Baru saja';
     if (diff.inHours < 1) return '${diff.inMinutes}m';
     if (diff.inDays < 1) return '${diff.inHours}h';
     if (diff.inDays < 7) return '${diff.inDays}d';
-    return DateFormat('d MMM').format(lastMessageTime!);
+    return DateFormat('d MMM').format(lastMessageAt!);
   }
 
+  bool get isAdminMode => mode == 'admin';
+  bool get isBotMode => mode == 'bot';
+
+  /// Convert to JSON for Supabase (snake_case)
   Map<String, dynamic> toJson() => {
         'id': id,
-        'studentId': studentId,
-        'studentName': studentName,
-        'lastMessage': lastMessage,
-        'lastMessageTime': lastMessageTime?.toIso8601String(),
-        'unreadCount': unreadCount,
-        'eventId': eventId,
-        'eventTitle': eventTitle,
+        'student_id': studentId,
+        'student_name': studentName,
+        'event_id': eventId,
+        'event_title': eventTitle,
+        'mode': mode,
+        'last_message': lastMessage,
+        'last_message_at': lastMessageAt?.toIso8601String(),
+        'unread_count': unreadCount,
+        'is_active': isActive,
+        'created_at': createdAt.toIso8601String(),
+        'updated_at': updatedAt.toIso8601String(),
       };
 
+  /// Create from JSON from Supabase (snake_case)
   factory ConversationModel.fromJson(Map<String, dynamic> json) =>
       ConversationModel(
         id: json['id'] as String,
-        studentId: json['studentId'] as String,
-        studentName: json['studentName'] as String,
-        lastMessage: json['lastMessage'] as String?,
-        lastMessageTime: json['lastMessageTime'] != null
-            ? DateTime.parse(json['lastMessageTime'] as String)
+        studentId: json['student_id'] as String,
+        studentName: json['student_name'] as String,
+        eventId: json['event_id'] as String?,
+        eventTitle: json['event_title'] as String?,
+        mode: json['mode'] as String? ?? 'admin',
+        lastMessage: json['last_message'] as String?,
+        lastMessageAt: json['last_message_at'] != null
+            ? DateTime.parse(json['last_message_at'] as String)
             : null,
-        unreadCount: json['unreadCount'] as int? ?? 0,
-        eventId: json['eventId'] as String?,
-        eventTitle: json['eventTitle'] as String?,
+        unreadCount: json['unread_count'] as int? ?? 0,
+        isActive: json['is_active'] as bool? ?? true,
+        createdAt: json['created_at'] != null
+            ? DateTime.parse(json['created_at'] as String)
+            : DateTime.now(),
+        updatedAt: json['updated_at'] != null
+            ? DateTime.parse(json['updated_at'] as String)
+            : DateTime.now(),
       );
+
+  ConversationModel copyWith({
+    String? id,
+    String? studentId,
+    String? studentName,
+    String? eventId,
+    String? eventTitle,
+    String? mode,
+    String? lastMessage,
+    DateTime? lastMessageAt,
+    int? unreadCount,
+    bool? isActive,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return ConversationModel(
+      id: id ?? this.id,
+      studentId: studentId ?? this.studentId,
+      studentName: studentName ?? this.studentName,
+      eventId: eventId ?? this.eventId,
+      eventTitle: eventTitle ?? this.eventTitle,
+      mode: mode ?? this.mode,
+      lastMessage: lastMessage ?? this.lastMessage,
+      lastMessageAt: lastMessageAt ?? this.lastMessageAt,
+      unreadCount: unreadCount ?? this.unreadCount,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }

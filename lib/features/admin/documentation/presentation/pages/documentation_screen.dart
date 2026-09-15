@@ -57,8 +57,8 @@ class _DocumentationScreenState extends State<DocumentationScreen> {
       
       if (_documentation != null) {
         _titleController.text = _documentation!.title;
-        _descriptionController.text = _documentation!.description;
-        _urlController.text = _documentation!.googleDriveUrl;
+        _descriptionController.text = _documentation!.description ?? '';
+        _urlController.text = _documentation!.fileUrl;
       } else {
         // Pre-fill title with event name
         _titleController.text = '$_eventTitle Documentation';
@@ -89,7 +89,10 @@ class _DocumentationScreenState extends State<DocumentationScreen> {
         eventId: widget.eventId,
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
-        googleDriveUrl: _urlController.text.trim(),
+        fileType: 'url', // Default file type for URL links
+        fileUrl: _urlController.text.trim(),
+        fileSize: null, // No size for URL links
+        uploadedBy: null, // Will be set by service from current user
       );
 
       if (_documentation != null) {

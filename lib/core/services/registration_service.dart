@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/registration_model.dart';
 import '../utils/logger.dart';
+import 'notification_service.dart';
 
 /// Registration Service - Handle event registrations (INDIVIDUAL & TEAM)
 class RegistrationService {
@@ -29,6 +30,75 @@ class RegistrationService {
     required Map<String, dynamic> formData,
   }) async {
     try {
+      // Validate authentication
+      if (userId.isEmpty) {
+        return RegistrationResult(
+          success: false,
+          message: 'Silakan login terlebih dahulu',
+        );
+      }
+
+      // Get event details for validation
+      final eventResponse = await _supabase
+          .from('events')
+          .select()
+          .eq('id', eventId)
+          .maybeSingle();
+
+      if (eventResponse == null) {
+        return RegistrationResult(
+          success: false,
+          message: 'Event tidak ditemukan',
+        );
+      }
+
+      final event = eventResponse;
+
+      // Validate event is published
+      if (event['is_published'] != true) {
+        return RegistrationResult(
+          success: false,
+          message: 'Event belum dipublikasikan',
+        );
+      }
+
+      // Validate registration is open
+      if (event['is_registration_open'] != true) {
+        return RegistrationResult(
+          success: false,
+          message: 'Pendaftaran event sudah ditutup',
+        );
+      }
+
+      // Validate event status
+      if (event['status'] == 'closed') {
+        return RegistrationResult(
+          success: false,
+          message: 'Event sudah ditutup',
+        );
+      }
+
+      // Validate registration deadline
+      if (event['registration_deadline'] != null) {
+        final deadline = DateTime.parse(event['registration_deadline'] as String);
+        if (DateTime.now().isAfter(deadline)) {
+          return RegistrationResult(
+            success: false,
+            message: 'Batas waktu pendaftaran sudah berakhir',
+          );
+        }
+      }
+
+      // Validate capacity
+      final capacity = event['capacity'] as int;
+      final registered = event['registered'] as int;
+      if (registered >= capacity) {
+        return RegistrationResult(
+          success: false,
+          message: 'Kuota event sudah penuh',
+        );
+      }
+
       // Check apakah user sudah terdaftar
       final existingResponse = await _supabase
           .from('registrations')
@@ -56,36 +126,51 @@ class RegistrationService {
         );
       }
 
-      // Buat registration
-      final registration = RegistrationModel(
-        id: 'reg_${DateTime.now().millisecondsSinceEpoch}',
-        eventId: eventId,
-        type: RegistrationType.individual,
-        userId: userId,
-        userName: userName,
-        formData: formData,
-        registrationDate: DateTime.now(),
-        status: RegistrationStatus.pending,
-      );
+      // Buat registration - let database generate UUID
+      final registrationData = {
+        'event_id': eventId,
+        'type': RegistrationType.individual.name,
+        'user_id': userId,
+        'user_name': userName,
+        'form_data': formData,
+        'registration_date': DateTime.now().toIso8601String(),
+        'status': RegistrationStatus.pending.name,
+      };
 
-      await _supabase.from('registrations').insert(
-        registration.toJson(),
-      );
+      final insertedResponse = await _supabase
+          .from('registrations')
+          .insert(registrationData)
+          .select()
+          .single();
 
       await _notifyUpdateFromDatabase();
 
       return RegistrationResult(
         success: true,
         message: 'Pendaftaran berhasil! Menunggu konfirmasi admin.',
-        registrationId: registration.id,
+        registrationId: insertedResponse['id'] as String,
       );
     } catch (e) {
       AppLogger.error('Error registering individual', e);
 
-      return RegistrationResult(
-        success: false,
-        message: 'Terjadi kesalahan: ${e.toString()}',
-      );
+      // Provide more specific error messages
+      final errorMessage = e.toString();
+      if (errorMessage.contains('duplicate key') || errorMessage.contains('unique constraint')) {
+        return RegistrationResult(
+          success: false,
+          message: 'Anda sudah terdaftar di event ini',
+        );
+      } else if (errorMessage.contains('permission') || errorMessage.contains('policy')) {
+        return RegistrationResult(
+          success: false,
+          message: 'Akses ditolak. Pastikan Anda sudah login',
+        );
+      } else {
+        return RegistrationResult(
+          success: false,
+          message: 'Terjadi kesalahan saat mendaftar. Silakan coba lagi.',
+        );
+      }
     }
   }
 
@@ -103,14 +188,91 @@ class RegistrationService {
     required Map<String, dynamic> formData,
   }) async {
     try {
+      // Validate authentication
+      if (leaderId.isEmpty) {
+        return RegistrationResult(
+          success: false,
+          message: 'Silakan login terlebih dahulu',
+        );
+      }
+
+      // Get event details for validation
+      final eventResponse = await _supabase
+          .from('events')
+          .select()
+          .eq('id', eventId)
+          .maybeSingle();
+
+      if (eventResponse == null) {
+        return RegistrationResult(
+          success: false,
+          message: 'Event tidak ditemukan',
+        );
+      }
+
+      final event = eventResponse;
+
+      // Validate event is published
+      if (event['is_published'] != true) {
+        return RegistrationResult(
+          success: false,
+          message: 'Event belum dipublikasikan',
+        );
+      }
+
+      // Validate registration is open
+      if (event['is_registration_open'] != true) {
+        return RegistrationResult(
+          success: false,
+          message: 'Pendaftaran event sudah ditutup',
+        );
+      }
+
+      // Validate event status
+      if (event['status'] == 'closed') {
+        return RegistrationResult(
+          success: false,
+          message: 'Event sudah ditutup',
+        );
+      }
+
+      // Validate registration type matches
+      if (event['registration_type'] != 'team') {
+        return RegistrationResult(
+          success: false,
+          message: 'Event ini hanya menerima pendaftaran individual',
+        );
+      }
+
+      // Validate registration deadline
+      if (event['registration_deadline'] != null) {
+        final deadline = DateTime.parse(event['registration_deadline'] as String);
+        if (DateTime.now().isAfter(deadline)) {
+          return RegistrationResult(
+            success: false,
+            message: 'Batas waktu pendaftaran sudah berakhir',
+          );
+        }
+      }
+
+      // Validate capacity
+      final capacity = event['capacity'] as int;
+      final registered = event['registered'] as int;
+      if (registered >= capacity) {
+        return RegistrationResult(
+          success: false,
+          message: 'Kuota event sudah penuh',
+        );
+      }
+
       // Ambil semua registration event ini
       final response = await _supabase
           .from('registrations')
-          .select();
+          .select()
+          .eq('event_id', eventId);
 
       final registrations = (response as List)
           .map((json) => RegistrationModel.fromJson(json))
-          .where((registration) => registration.eventId == eventId)
           .toList();
 
       // Check apakah team/class sudah terdaftar
@@ -145,39 +307,54 @@ class RegistrationService {
         }
       }
 
-      // Buat registration team
-      final registration = RegistrationModel(
-        id: 'reg_${DateTime.now().millisecondsSinceEpoch}',
-        eventId: eventId,
-        type: RegistrationType.team,
-        teamName: teamName,
-        className: className,
-        leaderId: leaderId,
-        leaderName: leaderName,
-        members: members,
-        formData: formData,
-        registrationDate: DateTime.now(),
-        status: RegistrationStatus.pending,
-      );
+      // Buat registration team - let database generate UUID
+      final registrationData = {
+        'event_id': eventId,
+        'type': RegistrationType.team.name,
+        'team_name': teamName,
+        'class_name': className,
+        'leader_id': leaderId,
+        'leader_name': leaderName,
+        'members': members.map((m) => m.toJson()).toList(),
+        'form_data': formData,
+        'registration_date': DateTime.now().toIso8601String(),
+        'status': RegistrationStatus.pending.name,
+      };
 
-      await _supabase.from('registrations').insert(
-        registration.toJson(),
-      );
+      final insertedResponse = await _supabase
+          .from('registrations')
+          .insert(registrationData)
+          .select()
+          .single();
 
       await _notifyUpdateFromDatabase();
 
       return RegistrationResult(
         success: true,
         message: 'Pendaftaran team berhasil! Menunggu konfirmasi admin.',
-        registrationId: registration.id,
+        registrationId: insertedResponse['id'] as String,
       );
     } catch (e) {
       AppLogger.error('Error registering team', e);
 
-      return RegistrationResult(
-        success: false,
-        message: 'Terjadi kesalahan: ${e.toString()}',
-      );
+      // Provide more specific error messages
+      final errorMessage = e.toString();
+      if (errorMessage.contains('duplicate key') || errorMessage.contains('unique constraint')) {
+        return RegistrationResult(
+          success: false,
+          message: 'Team ini sudah terdaftar di event ini',
+        );
+      } else if (errorMessage.contains('permission') || errorMessage.contains('policy')) {
+        return RegistrationResult(
+          success: false,
+          message: 'Akses ditolak. Pastikan Anda sudah login',
+        );
+      } else {
+        return RegistrationResult(
+          success: false,
+          message: 'Terjadi kesalahan saat mendaftar. Silakan coba lagi.',
+        );
+      }
     }
   }
 
@@ -332,6 +509,14 @@ class RegistrationService {
     required RegistrationStatus status,
   }) async {
     try {
+      // Get registration details before updating (for notification)
+      final registrationData = await _supabase
+          .from('registrations')
+          .select('*, events!inner(id, title)')
+          .eq('id', registrationId)
+          .single();
+
+      // Update status
       await _supabase
           .from('registrations')
           .update({
@@ -341,11 +526,56 @@ class RegistrationService {
 
       await _notifyUpdateFromDatabase();
 
+      // Send notification if approved or rejected
+      if (status == RegistrationStatus.confirmed || status == RegistrationStatus.cancelled) {
+        _sendRegistrationStatusNotification(
+          registrationData: registrationData,
+          newStatus: status,
+        );
+      }
+
       return true;
     } catch (e) {
       AppLogger.error('Error updating registration status', e);
       return false;
     }
+  }
+
+  /// Send notification when registration status changes (fire-and-forget)
+  void _sendRegistrationStatusNotification({
+    required Map<String, dynamic> registrationData,
+    required RegistrationStatus newStatus,
+  }) {
+    // Fire-and-forget: don't await, don't block main operation
+    Future(() async {
+      try {
+        final notificationService = NotificationService();
+        final userId = registrationData['user_id'] as String?;
+        final eventData = registrationData['events'] as Map<String, dynamic>?;
+        
+        if (userId == null || eventData == null) return;
+        
+        final eventId = eventData['id'] as String;
+        final eventTitle = eventData['title'] as String;
+
+        if (newStatus == RegistrationStatus.confirmed) {
+          await notificationService.notifyRegistrationApproved(
+            userId: userId,
+            eventId: eventId,
+            eventTitle: eventTitle,
+          );
+        } else if (newStatus == RegistrationStatus.cancelled) {
+          await notificationService.notifyRegistrationRejected(
+            userId: userId,
+            eventId: eventId,
+            eventTitle: eventTitle,
+          );
+        }
+      } catch (e) {
+        // Silent fail - don't break registration update
+        AppLogger.error('Failed to send registration notification', e);
+      }
+    });
   }
 
   // ============================================================

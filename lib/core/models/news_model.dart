@@ -1,44 +1,28 @@
-import '../utils/logger.dart';
-
-/// News Model
+/// News Model (Maps to announcements table in Database V3.2)
+/// Kept as NewsModel for UI compatibility but maps to announcements
 class NewsModel {
   final String id;
+  final String? eventId; // Can be null for general announcements
+  final String authorId;
   final String title;
   final String content;
-  final String excerpt;
-  final NewsCategory category;
-  final String authorId;
-  final String authorName;
-  final DateTime createdAt;
-  final DateTime? publishedAt;
-  final DateTime? updatedAt;
+  final bool isPinned;
   final bool isPublished;
-  final bool isImportant;
-  final String? imageUrl;
-  final NewsTarget target;
-  final String? targetEventId; // Jika target = EVENT_PARTICIPANTS
-  final int views;
-  final List<String> tags;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   NewsModel({
     required this.id,
+    this.eventId,
+    required this.authorId,
     required this.title,
     required this.content,
-    required this.excerpt,
-    required this.category,
-    required this.authorId,
-    required this.authorName,
+    this.isPinned = false,
+    this.isPublished = true,
     DateTime? createdAt,
-    this.publishedAt,
-    this.updatedAt,
-    this.isPublished = false,
-    this.isImportant = false,
-    this.imageUrl,
-    this.target = NewsTarget.allStudents,
-    this.targetEventId,
-    this.views = 0,
-    this.tags = const [],
-  }) : createdAt = createdAt ?? DateTime.now();
+    DateTime? updatedAt,
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   String get readTime {
     final words = content.split(' ').length;
@@ -48,8 +32,7 @@ class NewsModel {
 
   String get timeAgo {
     final now = DateTime.now();
-    final date = publishedAt ?? createdAt;
-    final difference = now.difference(date);
+    final difference = now.difference(createdAt);
 
     if (difference.inDays > 365) {
       return '${(difference.inDays / 365).floor()} year${difference.inDays ~/ 365 > 1 ? 's' : ''} ago';
@@ -66,151 +49,62 @@ class NewsModel {
     }
   }
 
+  bool get isEventSpecific => eventId != null;
+  bool get isGeneral => eventId == null;
+
+  /// Convert to JSON for Supabase (snake_case)
   Map<String, dynamic> toJson() => {
         'id': id,
+        'event_id': eventId,
+        'author_id': authorId,
         'title': title,
         'content': content,
-        'excerpt': excerpt,
-        'category': category.name,
-        'authorId': authorId,
-        'authorName': authorName,
-        'createdAt': createdAt.toIso8601String(),
-        'publishedAt': publishedAt?.toIso8601String(),
-        'updatedAt': updatedAt?.toIso8601String(),
-        'isPublished': isPublished,
-        'isImportant': isImportant,
-        'imageUrl': imageUrl,
-        'target': target.name,
-        'targetEventId': targetEventId,
-        'views': views,
-        'tags': tags,
+        'is_pinned': isPinned,
+        'is_published': isPublished,
+        'created_at': createdAt.toIso8601String(),
+        'updated_at': updatedAt.toIso8601String(),
       };
 
+  /// Create from JSON from Supabase (snake_case)
   factory NewsModel.fromJson(Map<String, dynamic> json) {
-    // DEBUG: Safe tags parsing
-    List<String> parsedTags = [];
-    try {
-      if (json['tags'] != null) {
-        final tagsData = json['tags'];
-        if (tagsData is List) {
-          parsedTags = tagsData.map((e) => e.toString()).toList();
-        }
-      }
-    } catch (e) {
-      AppLogger.error('NewsModel.fromJson tags error for news ${json['id']}', e);
-      AppLogger.debug('tags type: ${json['tags'].runtimeType}');
-      parsedTags = [];
-    }
-    
     return NewsModel(
-        id: json['id'] as String,
-        title: json['title'] as String,
-        content: json['content'] as String,
-        excerpt: json['excerpt'] as String,
-        category: NewsCategory.values.firstWhere(
-          (e) => e.name == json['category'],
-          orElse: () => NewsCategory.announcement,
-        ),
-        authorId: json['authorId'] as String,
-        authorName: json['authorName'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        publishedAt: json['publishedAt'] != null
-            ? DateTime.parse(json['publishedAt'] as String)
-            : null,
-        updatedAt: json['updatedAt'] != null
-            ? DateTime.parse(json['updatedAt'] as String)
-            : null,
-        isPublished: json['isPublished'] as bool? ?? false,
-        isImportant: json['isImportant'] as bool? ?? false,
-        imageUrl: json['imageUrl'] as String?,
-        target: NewsTarget.values.firstWhere(
-          (e) => e.name == json['target'],
-          orElse: () => NewsTarget.allStudents,
-        ),
-        targetEventId: json['targetEventId'] as String?,
-        views: json['views'] as int? ?? 0,
-        tags: parsedTags,
-      );
+      id: json['id'] as String,
+      eventId: json['event_id'] as String?,
+      authorId: json['author_id'] as String,
+      title: json['title'] as String,
+      content: json['content'] as String,
+      isPinned: json['is_pinned'] as bool? ?? false,
+      isPublished: json['is_published'] as bool? ?? true,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : DateTime.now(),
+    );
   }
 
   NewsModel copyWith({
     String? id,
+    String? eventId,
+    String? authorId,
     String? title,
     String? content,
-    String? excerpt,
-    NewsCategory? category,
-    String? authorId,
-    String? authorName,
-    DateTime? createdAt,
-    DateTime? publishedAt,
-    DateTime? updatedAt,
+    bool? isPinned,
     bool? isPublished,
-    bool? isImportant,
-    String? imageUrl,
-    NewsTarget? target,
-    String? targetEventId,
-    int? views,
-    List<String>? tags,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return NewsModel(
       id: id ?? this.id,
+      eventId: eventId ?? this.eventId,
+      authorId: authorId ?? this.authorId,
       title: title ?? this.title,
       content: content ?? this.content,
-      excerpt: excerpt ?? this.excerpt,
-      category: category ?? this.category,
-      authorId: authorId ?? this.authorId,
-      authorName: authorName ?? this.authorName,
-      createdAt: createdAt ?? this.createdAt,
-      publishedAt: publishedAt ?? this.publishedAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      isPinned: isPinned ?? this.isPinned,
       isPublished: isPublished ?? this.isPublished,
-      isImportant: isImportant ?? this.isImportant,
-      imageUrl: imageUrl ?? this.imageUrl,
-      target: target ?? this.target,
-      targetEventId: targetEventId ?? this.targetEventId,
-      views: views ?? this.views,
-      tags: tags ?? this.tags,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
-  }
-}
-
-enum NewsCategory {
-  event,
-  academic,
-  achievement,
-  announcement,
-  general,
-}
-
-enum NewsTarget {
-  allStudents,         // Semua student
-  eventParticipants,   // Peserta event tertentu
-}
-
-extension NewsCategoryExtension on NewsCategory {
-  String get displayName {
-    switch (this) {
-      case NewsCategory.event:
-        return 'Event';
-      case NewsCategory.academic:
-        return 'Academic';
-      case NewsCategory.achievement:
-        return 'Achievement';
-      case NewsCategory.announcement:
-        return 'Announcement';
-      case NewsCategory.general:
-        return 'General';
-    }
-  }
-}
-
-extension NewsTargetExtension on NewsTarget {
-  String get displayName {
-    switch (this) {
-      case NewsTarget.allStudents:
-        return 'All Students';
-      case NewsTarget.eventParticipants:
-        return 'Event Participants';
-    }
   }
 }

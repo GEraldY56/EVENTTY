@@ -19,6 +19,7 @@ class _NewsScreenState extends State<NewsScreen> {
   List<AnnouncementModel> _filteredAnnouncements = [];
   bool _isLoading = true;
   String _selectedFilter = 'All';
+  bool _isDisposed = false;
   
   final List<String> _filters = ['All', 'Event', 'General', 'Academic', 'Facility'];
 
@@ -28,24 +29,31 @@ class _NewsScreenState extends State<NewsScreen> {
     _loadAnnouncements();
   }
 
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+
   Future<void> _loadAnnouncements() async {
+    if (_isDisposed || !mounted) return;
+    
     setState(() => _isLoading = true);
+    
     try {
       final announcements = await _announcementService.getPublishedAnnouncements();
+      
+      if (_isDisposed || !mounted) return;
+      
       setState(() {
         _announcements = announcements;
         _filterAnnouncements();
         _isLoading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (_isDisposed || !mounted) return;
+      
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading announcements: $e'),
-          backgroundColor: AppColors.error,
-        ),
-      );
     }
   }
 
@@ -88,6 +96,7 @@ class _NewsScreenState extends State<NewsScreen> {
               expandedHeight: 120,
               pinned: true,
               backgroundColor: AppColors.primary,
+              automaticallyImplyLeading: false,
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
                   decoration: BoxDecoration(
@@ -162,7 +171,7 @@ class _NewsScreenState extends State<NewsScreen> {
                           child: Text(
                             filter,
                             style: AppTextStyles.body2.copyWith(
-                              color: isSelected ? Colors.white : AppColors.textPrimary,
+                              color: isSelected ? Colors.white : context.colors.textPrimary,
                               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                             ),
                           ),
@@ -375,10 +384,14 @@ class _NewsScreenState extends State<NewsScreen> {
   }
 
   void _showAnnouncementDetail(AnnouncementModel announcement) {
+    if (_isDisposed || !mounted) return;
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.9,
         minChildSize: 0.5,
@@ -467,7 +480,7 @@ class _NewsScreenState extends State<NewsScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () => Navigator.of(context).pop(),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(

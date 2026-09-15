@@ -18,7 +18,6 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
   final _nisController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -47,79 +46,122 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
   @override
   void dispose() {
     _animationController.dispose();
-    _nameController.dispose();
     _nisController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
-  if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return;
 
-  setState(() => _isLoading = true);
+    setState(() => _isLoading = true);
 
-  final authService = ref.read(authServiceProvider);
+    final authService = ref.read(authServiceProvider);
 
-  final nis = _nisController.text.trim();
-  final password = _passwordController.text;
-  final userName = _nameController.text.trim();
+    final nis = _nisController.text.trim();
+    final password = _passwordController.text;
 
-  try {
-    // NIS digunakan sebagai username lokal EVENTTY.
-    // Kalau input sudah berupa email, gunakan langsung.
-    final email = '$nis@eventty.app';
+    try {
+      // Use NIS-based authentication
+      // Convert NIS to internal email format: {nis}@eventty.local
+      final internalEmail = '$nis@eventty.local';
+      
+      // Login via Supabase Auth
+      final authResponse = await Supabase.instance.client.auth.signInWithPassword(
+        email: internalEmail,
+        password: password,
+      );
 
-    await authService.login(
-      email: email,
-      password: password,
-      userName: userName,
-      userId: nis,
-    );
+      if (authResponse.user == null) {
+        throw 'Login gagal. User tidak ditemukan.';
+      }
 
-    if (!mounted) return;
+      // Get profile from profiles table using auth.uid()
+      final profileResponse = await Supabase.instance.client
+          .from('profiles')
+          .select('full_name, role, nis')
+          .eq('id', authResponse.user!.id)
+          .single();
 
-    setState(() => _isLoading = false);
+      final fullName = profileResponse['full_name'] as String;
+      final role = profileResponse['role'] as String;
 
-    // Ambil role dari profile Supabase
-    final role = authService.userRole;
+      // Save session to SharedPreferences via AuthService (for compatibility)
+      await authService.login(
+        email: internalEmail,
+        password: password,
+        userName: fullName,
+        role: role,
+        userId: authResponse.user!.id,
+      );
 
-    context.go(
-      role == 'admin'
-          ? RouteNames.adminDashboard
-          : RouteNames.home,
-    );
-  } on AuthException catch (e) {
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(e.message),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+      // Navigate based on role
+      context.go(
+        role == 'admin'
+            ? RouteNames.adminDashboard
+            : RouteNames.home,
+      );
+    } on AuthException catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      String errorMessage = 'Login gagal';
+      
+      if (e.message.contains('Invalid login credentials')) {
+        errorMessage = 'NIS atau password salah. Silakan coba lagi.';
+      } else {
+        errorMessage = e.message;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
-      ),
-    );
-  } catch (e) {
-    if (!mounted) return;
+      );
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
 
-    setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Login gagal: $e'),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.code == '406' 
+              ? 'Profile tidak ditemukan. Hubungi administrator.'
+              : 'Error: ${e.message}'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login gagal: $e'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -348,52 +390,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
           ),
           const SizedBox(height: 32),
           
-          // Name Field
-          Text(
-            'Full Name',
-            style: AppTextStyles.body2.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _nameController,
-            decoration: InputDecoration(
-              hintText: 'Enter your full name',
-              prefixIcon: Icon(Icons.person_outline, color: AppColors.primary),
-              filled: true,
-              fillColor: AppColors.background,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppColors.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppColors.primary, width: 2),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppColors.error),
-              ),
-            ),
-            textCapitalization: TextCapitalization.words,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your name';
-              }
-              if (value.length < 3) {
-                return 'Name must be at least 3 characters';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 20),
-          
           // NIS Field
           Text(
             'NIS Number',
@@ -430,6 +426,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter your NIS';
+              }
+              if (value.length != 5 || !RegExp(r'^\d{5}$').hasMatch(value)) {
+                return 'NIS must be exactly 5 digits';
               }
               return null;
             },

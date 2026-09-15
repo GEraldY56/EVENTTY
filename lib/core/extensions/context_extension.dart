@@ -1,7 +1,39 @@
 import 'package:flutter/material.dart';
+import '../constants/colors.dart';
+
+/// Theme colors extension for easy access
+class ThemeColors {
+  final Color card;
+  final Color border;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color textTertiary;
+  final Color surface;
+
+  const ThemeColors({
+    required this.card,
+    required this.border,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.textTertiary,
+    required this.surface,
+  });
+}
 
 /// BuildContext Extensions
 extension ContextExtension on BuildContext {
+  /// Get theme colors
+  ThemeColors get colors {
+    final isDark = Theme.of(this).brightness == Brightness.dark;
+    return ThemeColors(
+      card: AppColors.card,
+      border: AppColors.border,
+      textPrimary: AppColors.textPrimary,
+      textSecondary: AppColors.textSecondary,
+      textTertiary: AppColors.textTertiary,
+      surface: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF5F5F5),
+    );
+  }
   /// Get screen size
   Size get screenSize => MediaQuery.of(this).size;
 

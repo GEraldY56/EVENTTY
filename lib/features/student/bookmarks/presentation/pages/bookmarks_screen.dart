@@ -5,6 +5,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
+import '../../../../../core/routes/route_names.dart';
 import '../../../../../core/services/bookmark_service.dart';
 import '../../../../../core/services/event_service.dart';
 import '../../../../../core/models/event_model.dart';
@@ -177,7 +178,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton.icon(
-                      onPressed: () => context.push('/events'),
+                      onPressed: () => context.push(RouteNames.events),
                       icon: const Icon(Icons.explore_rounded),
                       label: const Text('Explore Events'),
                     ),
@@ -225,7 +226,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                         currentParticipants: event.registered,
                         maxParticipants: event.capacity,
                         onTap: () {
-                          context.push('/events/${event.id}');
+                          context.push(RouteNames.eventDetail.replaceAll(':id', event.id));
                         },
                       ),
                     ),

@@ -114,22 +114,25 @@ class _CertificateScreenState extends State<CertificateScreen> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    
     return Scaffold(
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: colors.card,
         elevation: 0,
         centerTitle: true,
         title: Text(
           'My Certificate',
           style: AppTextStyles.heading3.copyWith(
-            color: AppColors.textPrimary,
+            color: colors.textPrimary,
             fontWeight: FontWeight.bold,
           ),
         ),
         automaticallyImplyLeading: false, // Remove back button karena ini tab
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list_rounded, color: AppColors.textPrimary),
+            icon: Icon(Icons.filter_list_rounded, color: colors.textPrimary),
             onPressed: () {
               // Filter action
             },
@@ -167,18 +170,13 @@ class _CertificateScreenState extends State<CertificateScreen> with SingleTicker
   }
 
   Widget _buildStatsCard() {
+    final colors = context.colors;
+    
     return Container(
       margin: const EdgeInsets.all(AppSpacing.horizontalPadding),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF6DD5FA).withValues(alpha: 0.2),
-            const Color(0xFF2980B9).withValues(alpha: 0.15),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: colors.card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: const Color(0xFF2980B9).withValues(alpha: 0.2),
@@ -194,7 +192,7 @@ class _CertificateScreenState extends State<CertificateScreen> with SingleTicker
                 Text(
                   'Total Sertifikat',
                   style: AppTextStyles.body2.copyWith(
-                    color: AppColors.textSecondary,
+                    color: colors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -211,7 +209,7 @@ class _CertificateScreenState extends State<CertificateScreen> with SingleTicker
                 Text(
                   'Terus tingkatkan dan\nkumpulkan lebih banyak sertifikat!',
                   style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textTertiary,
+                    color: colors.textTertiary,
                     height: 1.4,
                   ),
                 ),
@@ -313,12 +311,14 @@ class _CertificateScreenState extends State<CertificateScreen> with SingleTicker
   }
 
   Widget _buildTabs() {
+    final colors = context.colors;
+    
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AppSpacing.horizontalPadding),
       child: TabBar(
         controller: _tabController,
         labelColor: const Color(0xFF2980B9),
-        unselectedLabelColor: AppColors.textSecondary,
+        unselectedLabelColor: colors.textSecondary,
         labelStyle: AppTextStyles.body2.copyWith(
           fontWeight: FontWeight.w600,
         ),
@@ -340,6 +340,8 @@ class _CertificateScreenState extends State<CertificateScreen> with SingleTicker
   }
 
   Widget _buildEmptyState() {
+    final colors = context.colors;
+    
     String message;
     if (_selectedTabIndex == 1) {
       message = 'Belum ada sertifikat event';
@@ -356,20 +358,20 @@ class _CertificateScreenState extends State<CertificateScreen> with SingleTicker
           Icon(
             Icons.workspace_premium_outlined,
             size: 80,
-            color: AppColors.textTertiary,
+            color: colors.textTertiary,
           ),
           const SizedBox(height: 16),
           Text(
             message,
             style: AppTextStyles.titleMedium.copyWith(
-              color: AppColors.textSecondary,
+              color: colors.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Ikuti event dan dapatkan sertifikat',
             style: AppTextStyles.body2.copyWith(
-              color: AppColors.textTertiary,
+              color: colors.textTertiary,
             ),
           ),
         ],
@@ -379,14 +381,15 @@ class _CertificateScreenState extends State<CertificateScreen> with SingleTicker
 
   Widget _buildCertificateListItem(BuildContext context, Map<String, dynamic> cert) {
     final color = cert['color'] as Color;
+    final colors = context.colors;
     
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.border,
+          color: colors.border,
           width: 0.5,
         ),
         boxShadow: [
@@ -515,6 +518,7 @@ class _CertificateScreenState extends State<CertificateScreen> with SingleTicker
                         style: AppTextStyles.titleSmall.copyWith(
                           fontWeight: FontWeight.w600,
                           height: 1.3,
+                          color: colors.textPrimary,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -527,13 +531,13 @@ class _CertificateScreenState extends State<CertificateScreen> with SingleTicker
                           Icon(
                             Icons.calendar_today_rounded,
                             size: 12,
-                            color: AppColors.textTertiary,
+                            color: colors.textTertiary,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             cert['date'],
                             style: AppTextStyles.captionSmall.copyWith(
-                              color: AppColors.textSecondary,
+                              color: colors.textSecondary,
                             ),
                           ),
                         ],
@@ -546,14 +550,14 @@ class _CertificateScreenState extends State<CertificateScreen> with SingleTicker
                           Icon(
                             Icons.business_rounded,
                             size: 12,
-                            color: AppColors.textTertiary,
+                            color: colors.textTertiary,
                           ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               cert['organizer'],
                               style: AppTextStyles.captionSmall.copyWith(
-                                color: AppColors.textSecondary,
+                                color: colors.textSecondary,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -616,7 +620,7 @@ class _CertificateScreenState extends State<CertificateScreen> with SingleTicker
                 // Arrow
                 Icon(
                   Icons.chevron_right_rounded,
-                  color: AppColors.textTertiary,
+                  color: colors.textTertiary,
                   size: 24,
                 ),
               ],

@@ -156,7 +156,7 @@ class NewsDetailScreen extends StatelessWidget {
                 icon: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: context.colors.surface,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
@@ -178,7 +178,7 @@ class NewsDetailScreen extends StatelessWidget {
                   icon: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: context.colors.surface,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
@@ -206,7 +206,7 @@ class NewsDetailScreen extends StatelessWidget {
                   icon: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: context.colors.surface,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
@@ -295,7 +295,7 @@ class NewsDetailScreen extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: context.colors.surface,
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(

@@ -1,16 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
+import '../../../../../core/routes/route_names.dart';
 
 class SearchBarWidget extends StatelessWidget {
   final VoidCallback? onTap;
 
   const SearchBarWidget({super.key, this.onTap});
 
+  void _showSearchDialog(BuildContext context) {
+    final searchController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Search Events'),
+        content: TextField(
+          controller: searchController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Enter event name...',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (value) {
+            if (value.trim().isNotEmpty) {
+              Navigator.pop(dialogContext);
+              // Navigate to events screen with search query
+              context.push('${RouteNames.events}?query=${Uri.encodeComponent(value.trim())}');
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final query = searchController.text.trim();
+              if (query.isNotEmpty) {
+                Navigator.pop(dialogContext);
+                // Navigate to events screen with search query
+                context.push('${RouteNames.events}?query=${Uri.encodeComponent(query)}');
+              }
+            },
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: onTap ?? () => _showSearchDialog(context),
       child: Container(
         height: 56,
         decoration: BoxDecoration(

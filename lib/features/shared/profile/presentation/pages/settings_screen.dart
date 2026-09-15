@@ -19,11 +19,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        title: Text('Settings', style: AppTextStyles.heading3),
-        backgroundColor: AppColors.background,
+        title: Text('Settings', style: AppTextStyles.heading3.copyWith(color: colors.textPrimary)),
+        backgroundColor: colors.background,
+        iconTheme: IconThemeData(color: colors.textPrimary),
       ),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
@@ -33,7 +36,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Notifications Section
           Text(
             'Notifications',
-            style: AppTextStyles.heading3,
+            style: AppTextStyles.heading3.copyWith(color: colors.textPrimary),
           ),
           const SizedBox(height: AppSpacing.paddingMD),
 
@@ -52,7 +55,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   }
                 });
               },
-              activeColor: AppColors.primary,
+              activeColor: colors.primary,
             ),
           ),
 
@@ -67,7 +70,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       setState(() => _emailNotifications = value);
                     }
                   : null,
-              activeColor: AppColors.primary,
+              activeColor: colors.primary,
             ),
           ),
 
@@ -82,7 +85,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       setState(() => _pushNotifications = value);
                     }
                   : null,
-              activeColor: AppColors.primary,
+              activeColor: colors.primary,
             ),
           ),
 
@@ -91,7 +94,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Appearance Section
           Text(
             'Appearance',
-            style: AppTextStyles.heading3,
+            style: AppTextStyles.heading3.copyWith(color: colors.textPrimary),
           ),
           const SizedBox(height: AppSpacing.paddingMD),
 
@@ -100,11 +103,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             'Enable dark theme',
             Icons.dark_mode_outlined,
             Switch(
-              value: ref.watch(isDarkModeProvider),
+              value: ref.watch(themeModeProvider) == ThemeMode.dark,
               onChanged: (value) {
                 ref.read(themeModeProvider.notifier).toggleTheme();
               },
-              activeColor: AppColors.primary,
+              activeColor: colors.primary,
             ),
           ),
 
@@ -113,7 +116,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // About Section
           Text(
             'About',
-            style: AppTextStyles.heading3,
+            style: AppTextStyles.heading3.copyWith(color: colors.textPrimary),
           ),
           const SizedBox(height: AppSpacing.paddingMD),
 
@@ -128,9 +131,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             'Terms & Conditions',
             'Read our terms and conditions',
             Icons.description_outlined,
-            const Icon(
+            Icon(
               Icons.chevron_right,
-              color: AppColors.textTertiary,
+              color: colors.textTertiary,
             ),
             onTap: () {
               _showInfoDialog(
@@ -145,9 +148,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             'Privacy Policy',
             'Read our privacy policy',
             Icons.privacy_tip_outlined,
-            const Icon(
+            Icon(
               Icons.chevron_right,
-              color: AppColors.textTertiary,
+              color: colors.textTertiary,
             ),
             onTap: () {
               _showInfoDialog(
@@ -169,25 +172,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     Widget? trailing, {
     VoidCallback? onTap,
   }) {
+    final colors = context.colors;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: colors.card,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: colors.border),
       ),
       child: ListTile(
         leading: Container(
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: AppColors.primary10,
+            color: colors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           ),
-          child: Icon(icon, color: AppColors.primary, size: 20),
+          child: Icon(icon, color: colors.primary, size: 20),
         ),
-        title: Text(title, style: AppTextStyles.titleMedium),
-        subtitle: Text(subtitle, style: AppTextStyles.body2),
+        title: Text(
+          title,
+          style: AppTextStyles.titleMedium.copyWith(color: colors.textPrimary),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: AppTextStyles.body2.copyWith(color: colors.textSecondary),
+        ),
         trailing: trailing,
         onTap: onTap,
       ),

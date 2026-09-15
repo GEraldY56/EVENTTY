@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/announcement_model.dart';
+import '../utils/logger.dart';
+import 'notification_service.dart';
 
 class AnnouncementService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -145,7 +147,18 @@ class AnnouncementService {
           ''')
           .single();
 
-      return AnnouncementModel.fromJson(response);
+      final createdAnnouncement = AnnouncementModel.fromJson(response);
+
+      // Send notification if published (regardless of pinned status)
+      if (isPublished) {
+        // Don't await to keep announcement creation non-blocking
+        // But keep proper error handling
+        _sendAnnouncementPublishedNotification(createdAnnouncement.id).catchError((error) {
+          AppLogger.error('Background notification error', error);
+        });
+      }
+
+      return createdAnnouncement;
     } catch (e) {
       throw Exception('Failed to create announcement: $e');
     }
@@ -213,12 +226,56 @@ class AnnouncementService {
   // Toggle publish status
   Future<void> togglePublish(String id, bool isPublished) async {
     try {
+      final newPublishStatus = !isPublished;
+      
       await _supabase
           .from('announcements')
-          .update({'is_published': !isPublished})
+          .update({'is_published': newPublishStatus})
           .eq('id', id);
+
+      // Send notification if changing from unpublished to published
+      if (newPublishStatus && !isPublished) {
+        _sendAnnouncementPublishedNotification(id).catchError((error) {
+          AppLogger.error('Background notification error', error);
+        });
+      }
     } catch (e) {
       throw Exception('Failed to toggle publish status: $e');
+    }
+  }
+
+  /// Send notification when announcement is published
+  Future<void> _sendAnnouncementPublishedNotification(String announcementId) async {
+    try {
+      final notificationService = NotificationService();
+      
+      // Get announcement details
+      final announcement = await getAnnouncementById(announcementId);
+      
+      // Get all student user IDs
+      final studentsResponse = await _supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'student');
+      
+      final studentIds = (studentsResponse as List)
+          .map((profile) => profile['id'] as String)
+          .toList();
+      
+      if (studentIds.isEmpty) {
+        return;
+      }
+      
+      // Send notification to all students
+      await notificationService.notifyAnnouncementPublished(
+        announcementId: announcement.id,
+        announcementTitle: announcement.title,
+        targetUserIds: studentIds,
+        isPinned: announcement.isPinned,
+      );
+    } catch (e) {
+      // Log error but don't break announcement publish
+      AppLogger.error('Error sending announcement notification', e);
     }
   }
 

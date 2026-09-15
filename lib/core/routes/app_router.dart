@@ -94,7 +94,11 @@ class AppRouter {
             path: RouteNames.events,
             builder: (context, state) {
               final category = state.uri.queryParameters['category'];
-              return EventsScreen(initialCategory: category);
+              final query = state.uri.queryParameters['query'];
+              return EventsScreen(
+                initialCategory: category,
+                initialQuery: query,
+              );
             },
           ),
           GoRoute(

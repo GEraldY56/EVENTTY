@@ -4,6 +4,14 @@ import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
 import '../../../../../core/routes/route_names.dart';
+import '../../../../../core/services/event_service.dart';
+import '../../../../../core/models/event_model.dart';
+
+// PHASE 5: Hardcoded List.generate(10, ...) dengan 'Classmeet 2026' REMOVED.
+// Events sekarang di-fetch dari Supabase via EventService.getAllEvents().
+// Toggle publish/registration dan delete via EventService (real DB operations).
+// UI layout, filter chips, bottom sheet, empty/error states DIPERTAHANKAN.
+// REQUIRES RUNTIME DATABASE VERIFICATION — Supabase not yet tested at runtime.
 
 class EventsListScreen extends StatefulWidget {
   const EventsListScreen({super.key});
@@ -13,51 +21,83 @@ class EventsListScreen extends StatefulWidget {
 }
 
 class _EventsListScreenState extends State<EventsListScreen> {
-  // Sample data - replace with actual state management
-  final List<Map<String, dynamic>> _events = List.generate(
-    10,
-    (index) => {
-      'id': 'event_$index',
-      'title': index == 0 ? 'Classmeet 2026' : 'Event ${index + 1}',
-      'date': '10 September 2027',
-      'participants': 45 + index * 5,
-      'capacity': 100,
-      'isPublished': index % 2 == 0,
-      'isRegistrationOpen': index % 3 != 0,
-      'category': index % 2 == 0 ? 'Workshop' : 'Competition',
-    },
-  );
+  final EventService _eventService = EventService();
 
+  List<EventModel> _events = [];
+  bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
   String _filterStatus = 'All';
 
   @override
-  Widget build(BuildContext context) {
-    final filteredEvents = _events.where((event) {
-      if (_filterStatus == 'All') return true;
-      if (_filterStatus == 'Published') return event['isPublished'] == true;
-      if (_filterStatus == 'Draft') return event['isPublished'] == false;
-      if (_filterStatus == 'Open') return event['isRegistrationOpen'] == true;
-      if (_filterStatus == 'Closed') return event['isRegistrationOpen'] == false;
-      return true;
-    }).toList();
+  void initState() {
+    super.initState();
+    _loadEvents();
+  }
 
+  Future<void> _loadEvents() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _errorMessage = '';
+    });
+    try {
+      final events = await _eventService.getAllEvents();
+      setState(() {
+        _events = events;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _hasError = true;
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  List<EventModel> get _filteredEvents {
+    return _events.where((event) {
+      switch (_filterStatus) {
+        case 'Published':
+          return event.isPublished;
+        case 'Draft':
+          return !event.isPublished;
+        case 'Open':
+          return event.isRegistrationOpen;
+        case 'Closed':
+          return !event.isRegistrationOpen;
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text('Manage Events', style: AppTextStyles.heading3),
         backgroundColor: AppColors.background,
         actions: [
+          if (!_isLoading)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadEvents,
+              tooltip: 'Refresh',
+            ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.filter_list),
-            onSelected: (value) {
-              setState(() => _filterStatus = value);
-            },
+            onSelected: (value) => setState(() => _filterStatus = value),
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'All', child: Text('All Events')),
               const PopupMenuItem(value: 'Published', child: Text('Published')),
               const PopupMenuItem(value: 'Draft', child: Text('Draft')),
-              const PopupMenuItem(value: 'Open', child: Text('Registration Open')),
-              const PopupMenuItem(value: 'Closed', child: Text('Registration Closed')),
+              const PopupMenuItem(
+                  value: 'Open', child: Text('Registration Open')),
+              const PopupMenuItem(
+                  value: 'Closed', child: Text('Registration Closed')),
             ],
           ),
         ],
@@ -86,25 +126,31 @@ class _EventsListScreenState extends State<EventsListScreen> {
             ),
           ),
 
-          // Events List
+          // Body
           Expanded(
-            child: filteredEvents.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
-                    itemCount: filteredEvents.length,
-                    itemBuilder: (context, index) {
-                      final event = filteredEvents[index];
-                      return _buildEventCard(context, event, index);
-                    },
-                  ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _hasError
+                    ? _buildErrorState()
+                    : _filteredEvents.isEmpty
+                        ? _buildEmptyState()
+                        : RefreshIndicator(
+                            onRefresh: _loadEvents,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.all(
+                                  AppSpacing.horizontalPadding),
+                              itemCount: _filteredEvents.length,
+                              itemBuilder: (context, index) {
+                                final event = _filteredEvents[index];
+                                return _buildEventCard(context, event);
+                              },
+                            ),
+                          ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          context.push(RouteNames.adminCreateEvent);
-        },
+        onPressed: () => context.push(RouteNames.adminCreateEvent),
         icon: const Icon(Icons.add),
         label: const Text('Create Event'),
       ),
@@ -115,9 +161,7 @@ class _EventsListScreenState extends State<EventsListScreen> {
     return FilterChip(
       label: Text(label),
       selected: isSelected,
-      onSelected: (selected) {
-        setState(() => _filterStatus = label);
-      },
+      onSelected: (_) => setState(() => _filterStatus = label),
       selectedColor: AppColors.primary.withValues(alpha: 0.2),
       checkmarkColor: AppColors.primary,
       labelStyle: AppTextStyles.body2.copyWith(
@@ -127,11 +171,69 @@ class _EventsListScreenState extends State<EventsListScreen> {
     );
   }
 
-  Widget _buildEventCard(BuildContext context, Map<String, dynamic> event, int index) {
-    final isPublished = event['isPublished'] as bool;
-    final isRegOpen = event['isRegistrationOpen'] as bool;
-    final participants = event['participants'] as int;
-    final capacity = event['capacity'] as int;
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: AppColors.error),
+            const SizedBox(height: 16),
+            Text(
+              'Gagal memuat events',
+              style: AppTextStyles.heading3.copyWith(color: AppColors.error),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage,
+              style:
+                  AppTextStyles.body2.copyWith(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadEvents,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.event_busy, size: 64, color: AppColors.textTertiary),
+          const SizedBox(height: 16),
+          Text(
+            _filterStatus == 'All'
+                ? 'Belum ada event'
+                : 'Tidak ada event dengan filter "$_filterStatus"',
+            style:
+                AppTextStyles.heading3.copyWith(color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          if (_filterStatus != 'All')
+            TextButton(
+              onPressed: () => setState(() => _filterStatus = 'All'),
+              child: const Text('Hapus filter'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventCard(BuildContext context, EventModel event) {
+    final isPublished = event.isPublished;
+    final isRegOpen = event.isRegistrationOpen;
+    final participants = event.registered;
+    final capacity = event.capacity;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
@@ -155,16 +257,18 @@ class _EventsListScreenState extends State<EventsListScreen> {
                       children: [
                         Flexible(
                           child: Text(
-                            event['title'] as String,
+                            event.title,
                             style: AppTextStyles.titleMedium,
                           ),
                         ),
                         const SizedBox(width: 8),
                         if (!isPublished)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: AppColors.textTertiary.withValues(alpha: 0.1),
+                              color: AppColors.textTertiary
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -179,7 +283,7 @@ class _EventsListScreenState extends State<EventsListScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      event['date'] as String,
+                      event.formattedDate,
                       style: AppTextStyles.body2,
                     ),
                   ],
@@ -212,7 +316,9 @@ class _EventsListScreenState extends State<EventsListScreen> {
                           color: AppColors.textPrimary,
                         ),
                         const SizedBox(width: 12),
-                        Text(isRegOpen ? 'Close Registration' : 'Open Registration'),
+                        Text(isRegOpen
+                            ? 'Close Registration'
+                            : 'Open Registration'),
                       ],
                     ),
                   ),
@@ -220,7 +326,8 @@ class _EventsListScreenState extends State<EventsListScreen> {
                     value: 'quota',
                     child: const Row(
                       children: [
-                        Icon(Icons.people_outline, size: 18, color: AppColors.textPrimary),
+                        Icon(Icons.people_outline,
+                            size: 18, color: AppColors.textPrimary),
                         SizedBox(width: 12),
                         Text('Edit Quota'),
                       ],
@@ -233,20 +340,21 @@ class _EventsListScreenState extends State<EventsListScreen> {
                       children: [
                         Icon(Icons.delete, size: 18, color: AppColors.error),
                         SizedBox(width: 12),
-                        Text('Delete', style: TextStyle(color: AppColors.error)),
+                        Text('Delete',
+                            style: TextStyle(color: AppColors.error)),
                       ],
                     ),
                   ),
                 ],
                 onSelected: (value) {
                   if (value == 'publish') {
-                    _togglePublish(event['id'] as String);
+                    _togglePublish(event);
                   } else if (value == 'registration') {
-                    _toggleRegistration(event['id'] as String);
+                    _toggleRegistration(event);
                   } else if (value == 'quota') {
                     _showEditQuotaDialog(event);
                   } else if (value == 'delete') {
-                    _showDeleteDialog(event['id'] as String);
+                    _showDeleteDialog(event);
                   }
                 },
               ),
@@ -264,9 +372,14 @@ class _EventsListScreenState extends State<EventsListScreen> {
                 isRegOpen ? 'Registration Open' : 'Registration Closed',
                 isRegOpen ? AppColors.success : AppColors.error,
               ),
+              _buildStatusBadge(event.category, AppColors.info),
               _buildStatusBadge(
-                event['category'] as String,
-                AppColors.info,
+                event.status.toUpperCase(),
+                event.isOpen
+                    ? AppColors.success
+                    : event.isOngoing
+                        ? AppColors.warning
+                        : AppColors.textSecondary,
               ),
             ],
           ),
@@ -285,10 +398,12 @@ class _EventsListScreenState extends State<EventsListScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: LinearProgressIndicator(
-                  value: participants / capacity,
+                  value: capacity > 0 ? participants / capacity : 0.0,
                   backgroundColor: AppColors.border,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    participants / capacity > 0.8 ? AppColors.error : AppColors.success,
+                    capacity > 0 && participants / capacity > 0.8
+                        ? AppColors.error
+                        : AppColors.success,
                   ),
                 ),
               ),
@@ -303,7 +418,8 @@ class _EventsListScreenState extends State<EventsListScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    context.push(RouteNames.adminEditEvent.replaceAll(':id', event['id'] as String));
+                    context.push(
+                        RouteNames.adminEditEvent.replaceAll(':id', event.id));
                   },
                   icon: const Icon(Icons.edit, size: 16),
                   label: const Text('Edit'),
@@ -315,10 +431,7 @@ class _EventsListScreenState extends State<EventsListScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    // Navigate to event detail
-                    _showEventDetailSheet(context, event);
-                  },
+                  onPressed: () => _showEventDetailSheet(context, event),
                   icon: const Icon(Icons.visibility, size: 16),
                   label: const Text('View'),
                   style: ElevatedButton.styleFrom(
@@ -351,164 +464,229 @@ class _EventsListScreenState extends State<EventsListScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.event_busy, size: 64, color: AppColors.textTertiary),
-          const SizedBox(height: 16),
-          Text(
-            'No events found',
-            style: AppTextStyles.heading3.copyWith(color: AppColors.textSecondary),
+  // ============================================================
+  // ACTIONS — real database operations via EventService
+  // EventService.updateEvent() menerima EventModel (full object).
+  // Gunakan event.copyWith() untuk membuat updated copy.
+  // ============================================================
+
+  Future<void> _togglePublish(EventModel event) async {
+    final updated = event.copyWith(isPublished: !event.isPublished);
+
+    // Optimistic UI update
+    setState(() {
+      final idx = _events.indexWhere((e) => e.id == event.id);
+      if (idx != -1) _events[idx] = updated;
+    });
+
+    try {
+      await _eventService.updateEvent(updated);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(updated.isPublished
+              ? 'Event published successfully'
+              : 'Event unpublished'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      // Rollback on error
+      setState(() {
+        final idx = _events.indexWhere((ev) => ev.id == event.id);
+        if (idx != -1) _events[idx] = event;
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal memperbarui publish: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _toggleRegistration(EventModel event) async {
+    final updated =
+        event.copyWith(isRegistrationOpen: !event.isRegistrationOpen);
+
+    // Optimistic UI update
+    setState(() {
+      final idx = _events.indexWhere((e) => e.id == event.id);
+      if (idx != -1) _events[idx] = updated;
+    });
+
+    try {
+      await _eventService.updateEvent(updated);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(updated.isRegistrationOpen
+              ? 'Registration opened'
+              : 'Registration closed'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      // Rollback
+      setState(() {
+        final idx = _events.indexWhere((ev) => ev.id == event.id);
+        if (idx != -1) _events[idx] = event;
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal memperbarui registrasi: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  void _showEditQuotaDialog(EventModel event) {
+    final controller = TextEditingController(text: event.capacity.toString());
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Edit Quota', style: AppTextStyles.heading3),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Event: ${event.title}', style: AppTextStyles.body1),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Capacity',
+                hintText: 'Enter new capacity',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Current participants: ${event.registered}',
+              style:
+                  AppTextStyles.body2.copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Try changing the filter',
-            style: AppTextStyles.body2,
+          ElevatedButton(
+            onPressed: () async {
+              final newCapacity = int.tryParse(controller.text);
+              if (newCapacity == null || newCapacity < event.registered) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                        'Invalid capacity. Must be >= current participants'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+                return;
+              }
+
+              Navigator.pop(ctx);
+
+              try {
+                await _eventService.updateEvent(
+                    event.copyWith(capacity: newCapacity));
+                await _loadEvents();
+
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Quota updated successfully'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Gagal update quota: $e'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              }
+            },
+            child: const Text('Save'),
           ),
         ],
       ),
     );
   }
 
-  void _togglePublish(String eventId) {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (!mounted) return;
-      setState(() {
-        final event = _events.firstWhere((e) => e['id'] == eventId);
-        event['isPublished'] = !(event['isPublished'] as bool);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _events.firstWhere((e) => e['id'] == eventId)['isPublished'] as bool
-                ? 'Event published successfully'
-                : 'Event unpublished',
-          ),
-        ),
-      );
-    });
-  }
-
-  void _toggleRegistration(String eventId) {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (!mounted) return;
-      setState(() {
-        final event = _events.firstWhere((e) => e['id'] == eventId);
-        event['isRegistrationOpen'] = !(event['isRegistrationOpen'] as bool);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _events.firstWhere((e) => e['id'] == eventId)['isRegistrationOpen'] as bool
-                ? 'Registration opened'
-                : 'Registration closed',
-          ),
-        ),
-      );
-    });
-  }
-
-  void _showEditQuotaDialog(Map<String, dynamic> event) {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (!mounted) return;
-      final controller = TextEditingController(text: event['capacity'].toString());
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Edit Quota', style: AppTextStyles.heading3),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Event: ${event['title']}', style: AppTextStyles.body1),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Capacity',
-                  hintText: 'Enter new capacity',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Current participants: ${event['participants']}',
-                style: AppTextStyles.body2.copyWith(color: AppColors.textSecondary),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final newCapacity = int.tryParse(controller.text);
-                final currentParticipants = event['participants'] as int;
-                if (newCapacity != null && newCapacity >= currentParticipants) {
-                  setState(() {
-                    event['capacity'] = newCapacity;
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Quota updated successfully')),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Invalid capacity. Must be >= current participants'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
-              },
-              child: const Text('Save'),
+  void _showDeleteDialog(EventModel event) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete Event', style: AppTextStyles.heading3),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Hapus "${event.title}"?', style: AppTextStyles.titleMedium),
+            const SizedBox(height: 8),
+            Text(
+              'Tindakan ini tidak dapat dibatalkan. Data peserta terkait event ini mungkin juga terdampak.',
+              style: AppTextStyles.body1,
             ),
           ],
         ),
-      );
-    });
-  }
-
-  void _showDeleteDialog(String eventId) {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Delete Event', style: AppTextStyles.heading3),
-          content: Text(
-            'Are you sure you want to delete this event? This action cannot be undone.',
-            style: AppTextStyles.body1,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _events.removeWhere((e) => e['id'] == eventId);
-                });
-                Navigator.pop(context);
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+
+              // Optimistic remove
+              setState(() => _events.removeWhere((e) => e.id == event.id));
+
+              try {
+                await _eventService.deleteEvent(event.id);
+
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Event deleted successfully')),
+                  const SnackBar(
+                    content: Text('Event deleted successfully'),
+                    backgroundColor: AppColors.success,
+                  ),
                 );
-              },
-              child: const Text('Delete', style: TextStyle(color: AppColors.error)),
-            ),
-          ],
-        ),
-      );
-    });
+              } catch (e) {
+                // Restore on failure — reload from DB
+                await _loadEvents();
+
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Gagal menghapus event: $e'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              }
+            },
+            child: const Text('Delete',
+                style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
   }
 
-  void _showEventDetailSheet(BuildContext context, Map<String, dynamic> event) {
+  void _showEventDetailSheet(BuildContext context, EventModel event) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -538,21 +716,34 @@ class _EventsListScreenState extends State<EventsListScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(event['title'] as String, style: AppTextStyles.heading2),
+                    Text(event.title, style: AppTextStyles.heading2),
                     const SizedBox(height: 16),
-                    _buildDetailRow(Icons.calendar_today, 'Date', event['date'] as String),
-                    _buildDetailRow(Icons.people, 'Participants', '${event['participants']}/${event['capacity']}'),
-                    _buildDetailRow(Icons.category, 'Category', event['category'] as String),
+                    _buildDetailRow(
+                        Icons.calendar_today, 'Date', event.formattedDate),
+                    _buildDetailRow(
+                        Icons.place, 'Location', event.location),
+                    _buildDetailRow(Icons.people, 'Participants',
+                        '${event.registered}/${event.capacity}'),
+                    _buildDetailRow(
+                        Icons.category, 'Category', event.category),
+                    _buildDetailRow(
+                        Icons.business, 'Organizer', event.organizer),
                     _buildDetailRow(
                       Icons.public,
                       'Status',
-                      (event['isPublished'] as bool) ? 'Published' : 'Draft',
+                      event.isPublished ? 'Published' : 'Draft',
                     ),
                     _buildDetailRow(
                       Icons.app_registration,
                       'Registration',
-                      (event['isRegistrationOpen'] as bool) ? 'Open' : 'Closed',
+                      event.isRegistrationOpen ? 'Open' : 'Closed',
                     ),
+                    if (event.certificateEnabled)
+                      _buildDetailRow(
+                        Icons.workspace_premium,
+                        'Certificate',
+                        event.certificateType.name,
+                      ),
                   ],
                 ),
               ),
@@ -570,8 +761,10 @@ class _EventsListScreenState extends State<EventsListScreen> {
         children: [
           Icon(icon, size: 20, color: AppColors.textSecondary),
           const SizedBox(width: 12),
-          Text('$label: ', style: AppTextStyles.body1.copyWith(fontWeight: FontWeight.w600)),
-          Text(value, style: AppTextStyles.body1),
+          Text('$label: ',
+              style: AppTextStyles.body1
+                  .copyWith(fontWeight: FontWeight.w600)),
+          Expanded(child: Text(value, style: AppTextStyles.body1)),
         ],
       ),
     );

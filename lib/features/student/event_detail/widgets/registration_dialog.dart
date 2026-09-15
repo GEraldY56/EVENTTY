@@ -153,7 +153,7 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> with 
         SnackBar(
           content: const Row(
             children: [
-              Icon(Icons.error_outline, color: Colors.white),
+              Icon(Icons.error_outline, color: Colors.white), // Keep white on error background
               SizedBox(width: 12),
               Expanded(
                 child: Text('Ketua tidak dapat dihapus'),

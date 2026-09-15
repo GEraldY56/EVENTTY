@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/notification_model.dart';
-import '../routes/route_names.dart';
 import '../utils/logger.dart';
 
 /// Notification Service
@@ -24,8 +23,8 @@ class NotificationService {
       final response = await _supabase
           .from('notifications')
           .select()
-          .eq('userId', userId)
-          .order('createdAt', ascending: false);
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
 
       return (response as List)
           .map((json) => NotificationModel.fromJson(json))
@@ -42,8 +41,8 @@ class NotificationService {
       final response = await _supabase
           .from('notifications')
           .select()
-          .eq('userId', userId)
-          .eq('isRead', false);
+          .eq('user_id', userId)
+          .eq('is_read', false);
 
       return (response as List).length;
     } catch (e) {
@@ -57,7 +56,7 @@ class NotificationService {
     try {
       await _supabase
           .from('notifications')
-          .update({'isRead': true})
+          .update({'is_read': true})
           .eq('id', notificationId);
     } catch (e) {
       AppLogger.error('Error marking notification as read', e);
@@ -69,9 +68,9 @@ class NotificationService {
     try {
       await _supabase
           .from('notifications')
-          .update({'isRead': true})
-          .eq('userId', userId)
-          .eq('isRead', false);
+          .update({'is_read': true})
+          .eq('user_id', userId)
+          .eq('is_read', false);
     } catch (e) {
       AppLogger.error('Error marking all as read', e);
     }
@@ -90,16 +89,96 @@ class NotificationService {
   }
 
   /// Create notification (internal method)
+  /// Uses RPC function to bypass RLS context issues
   Future<NotificationModel> _createNotification(NotificationModel notification) async {
+    
+    // Validate and refresh session if needed
+    await _ensureValidSession();
+    
     try {
-      await _supabase
-          .from('notifications')
-          .insert(notification.toJson());
       
+      // Use RPC function instead of direct INSERT
+      // This bypasses the RLS context issue (RPC works, REST INSERT doesn't)
+      final response = await _supabase.rpc('create_notification', params: {
+        'p_user_id': notification.userId,
+        'p_type': notification.type,
+        'p_title': notification.title,
+        'p_message': notification.message,
+        'p_related_id': notification.relatedId,
+      });
+      
+      
+      final createdNotification = NotificationModel.fromJson(response as Map<String, dynamic>);
       _notifyUpdate(notification.userId);
-      return notification;
+      return createdNotification;
+    } on PostgrestException catch (e) {
+      
+      // Handle PGRST303 (JWT issued at future) - refresh and retry once
+      if (e.code == 'PGRST303' || e.message.contains('JWT')) {
+        await _refreshSession();
+        
+        final response = await _supabase.rpc('create_notification', params: {
+          'p_user_id': notification.userId,
+          'p_type': notification.type,
+          'p_title': notification.title,
+          'p_message': notification.message,
+          'p_related_id': notification.relatedId,
+        });
+        
+        
+        final createdNotification = NotificationModel.fromJson(response as Map<String, dynamic>);
+        _notifyUpdate(notification.userId);
+        return createdNotification;
+      }
+      
+      AppLogger.error('Error creating notification', e);
+      rethrow;
     } catch (e) {
       AppLogger.error('Error creating notification', e);
+      rethrow;
+    }
+  }
+  
+  /// Ensure session is valid before making authenticated requests
+  Future<void> _ensureValidSession() async {
+    final session = _supabase.auth.currentSession;
+    
+    if (session == null) {
+      throw Exception('No active session');
+    }
+    
+    // DEBUG: Check is_admin() result
+    try {
+      final isAdmin = await _supabase.rpc('is_admin');
+      
+      if (isAdmin != true) {
+      }
+    } catch (e) {
+      // Log error but allow processing to continue
+      AppLogger.error('Error checking admin status', e);
+    }
+    
+    // Check if session is expired or near expiry (< 5 minutes)
+    final expiresAt = session.expiresAt;
+    if (expiresAt != null) {
+      final expiryTime = DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000);
+      final now = DateTime.now();
+      
+      if (expiryTime.isBefore(now) || expiryTime.difference(now).inMinutes < 5) {
+        await _refreshSession();
+      }
+    }
+  }
+  
+  /// Refresh session
+  Future<void> _refreshSession() async {
+    try {
+      final response = await _supabase.auth.refreshSession();
+      if (response.session == null) {
+        throw Exception('Session refresh failed');
+      }
+    } catch (e) {
+      AppLogger.error('Error refreshing session', e);
       rethrow;
     }
   }
@@ -129,14 +208,12 @@ class NotificationService {
       try {
         final notification = await _createNotification(
           NotificationModel(
-            id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+            id: '', // Will be generated by database
             userId: userId,
-            type: NotificationType.eventPublished,
+            type: 'event_published',
             title: 'New Event Available',
             message: '$eventTitle is now open for registration!',
-            targetRoute: RouteNames.eventDetail,
-            routeParams: {'id': eventId},
-            referenceId: eventId,
+            relatedId: eventId,
           ),
         );
         notifications.add(notification);
@@ -160,14 +237,12 @@ class NotificationService {
       try {
         final notification = await _createNotification(
           NotificationModel(
-            id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+            id: '', // Will be generated by database
             userId: userId,
-            type: NotificationType.registrationOpened,
+            type: 'registration_opened',
             title: 'Registration Open',
             message: 'Registration for $eventTitle is now open. Don\'t miss out!',
-            targetRoute: RouteNames.eventDetail,
-            routeParams: {'id': eventId},
-            referenceId: eventId,
+            relatedId: eventId,
           ),
         );
         notifications.add(notification);
@@ -187,14 +262,12 @@ class NotificationService {
   }) async {
     return await _createNotification(
       NotificationModel(
-        id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+        id: '', // Will be generated by database
         userId: userId,
-        type: NotificationType.registrationApproved,
+        type: 'registration_approved',
         title: 'Registration Approved ✓',
         message: 'Your registration for $eventTitle has been approved!',
-        targetRoute: RouteNames.myEvents,
-        routeParams: {},
-        referenceId: eventId,
+        relatedId: eventId,
       ),
     );
   }
@@ -208,14 +281,12 @@ class NotificationService {
   }) async {
     return await _createNotification(
       NotificationModel(
-        id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+        id: '', // Will be generated by database
         userId: userId,
-        type: NotificationType.registrationRejected,
+        type: 'registration_rejected',
         title: 'Registration Not Approved',
         message: 'Your registration for $eventTitle was not approved. ${reason ?? ''}',
-        targetRoute: RouteNames.events,
-        routeParams: {},
-        referenceId: eventId,
+        relatedId: eventId,
       ),
     );
   }
@@ -232,14 +303,12 @@ class NotificationService {
       try {
         final notification = await _createNotification(
           NotificationModel(
-            id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+            id: '', // Will be generated by database
             userId: userId,
-            type: NotificationType.registrationClosed,
+            type: 'registration_closed',
             title: 'Registration Closed',
             message: 'Registration for $eventTitle is now closed.',
-            targetRoute: RouteNames.eventDetail,
-            routeParams: {'id': eventId},
-            referenceId: eventId,
+            relatedId: eventId,
           ),
         );
         notifications.add(notification);
@@ -251,35 +320,38 @@ class NotificationService {
     return notifications;
   }
 
-  /// Create notification: News/Pengumuman baru
-  Future<List<NotificationModel>> notifyNewsPublished({
-    required String newsId,
-    required String newsTitle,
+  /// Create notification: Announcement baru (was News)
+  Future<List<NotificationModel>> notifyAnnouncementPublished({
+    required String announcementId,
+    required String announcementTitle,
     required List<String> targetUserIds,
-    required bool isImportant,
+    required bool isPinned,
   }) async {
-    // Hanya create notification jika news important
-    if (!isImportant) return [];
     
     final notifications = <NotificationModel>[];
+    
+    // Use different title based on pinned status for better user experience
+    final notificationTitle = isPinned 
+        ? 'Important Announcement' 
+        : 'New Announcement';
+    
     
     for (final userId in targetUserIds) {
       try {
         final notification = await _createNotification(
           NotificationModel(
-            id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+            id: '', // Will be generated by database
             userId: userId,
-            type: NotificationType.newsPublished,
-            title: 'Important Announcement',
-            message: newsTitle,
-            targetRoute: RouteNames.newsDetail,
-            routeParams: {'id': newsId},
-            referenceId: newsId,
+            type: 'announcement',
+            title: notificationTitle,
+            message: announcementTitle,
+            relatedId: announcementId,
           ),
         );
         notifications.add(notification);
       } catch (e) {
-        AppLogger.error('Error notifying news published', e);
+        AppLogger.error('Error notifying announcement published for user $userId', e);
+        // Continue with other users even if one fails
       }
     }
     
@@ -294,14 +366,12 @@ class NotificationService {
   }) async {
     return await _createNotification(
       NotificationModel(
-        id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+        id: '', // Will be generated by database
         userId: userId,
-        type: NotificationType.certificateAvailable,
+        type: 'certificate',
         title: 'Certificate Ready 🎓',
         message: 'Your certificate for $eventTitle is now available!',
-        targetRoute: RouteNames.certificate,
-        routeParams: {},
-        referenceId: certificateId,
+        relatedId: certificateId,
       ),
     );
   }
@@ -315,14 +385,12 @@ class NotificationService {
   }) async {
     return await _createNotification(
       NotificationModel(
-        id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+        id: '', // Will be generated by database
         userId: userId,
-        type: NotificationType.eventReminder,
+        type: 'event_reminder',
         title: 'Event Reminder',
         message: '$eventTitle starts tomorrow! Don\'t forget to attend.',
-        targetRoute: RouteNames.eventDetail,
-        routeParams: {'id': eventId},
-        referenceId: eventId,
+        relatedId: eventId,
       ),
     );
   }
@@ -340,14 +408,12 @@ class NotificationService {
       try {
         final notification = await _createNotification(
           NotificationModel(
-            id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+            id: '', // Will be generated by database
             userId: userId,
-            type: NotificationType.eventCancelled,
+            type: 'event_cancelled',
             title: 'Event Cancelled',
             message: '$eventTitle has been cancelled. ${reason ?? ''}',
-            targetRoute: RouteNames.events,
-            routeParams: {},
-            referenceId: eventId,
+            relatedId: eventId,
           ),
         );
         notifications.add(notification);
@@ -372,14 +438,12 @@ class NotificationService {
       try {
         final notification = await _createNotification(
           NotificationModel(
-            id: 'notif_${DateTime.now().millisecondsSinceEpoch}_$userId',
+            id: '', // Will be generated by database
             userId: userId,
-            type: NotificationType.eventUpdated,
+            type: 'event_update',
             title: 'Event Updated',
             message: '$eventTitle: $updateMessage',
-            targetRoute: RouteNames.eventDetail,
-            routeParams: {'id': eventId},
-            referenceId: eventId,
+            relatedId: eventId,
           ),
         );
         notifications.add(notification);

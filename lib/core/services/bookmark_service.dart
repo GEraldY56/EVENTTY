@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Bookmark Service
-/// Manages event bookmarks/favorites for students via Supabase
+/// Manages event bookmarks/favorites for students via Supabase.
 class BookmarkService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -11,7 +11,7 @@ class BookmarkService {
       final response = await _supabase
           .from('bookmarks')
           .select('event_id')
-          .eq('student_id', userId);
+          .eq('user_id', userId);
 
       return (response as List)
           .map((item) => item['event_id'] as String)
@@ -27,10 +27,11 @@ class BookmarkService {
       final response = await _supabase
           .from('bookmarks')
           .select('id')
-          .eq('student_id', userId)
-          .eq('event_id', eventId);
+          .eq('user_id', userId)
+          .eq('event_id', eventId)
+          .maybeSingle();
 
-      return response.isNotEmpty;
+      return response != null;
     } catch (e) {
       return false;
     }
@@ -40,9 +41,10 @@ class BookmarkService {
   Future<bool> addBookmark(String userId, String eventId) async {
     try {
       await _supabase.from('bookmarks').insert({
-        'student_id': userId,
+        'user_id': userId,
         'event_id': eventId,
       });
+
       return true;
     } catch (e) {
       return false;
@@ -55,8 +57,9 @@ class BookmarkService {
       await _supabase
           .from('bookmarks')
           .delete()
-          .eq('student_id', userId)
+          .eq('user_id', userId)
           .eq('event_id', eventId);
+
       return true;
     } catch (e) {
       return false;
@@ -65,8 +68,9 @@ class BookmarkService {
 
   /// Toggle bookmark status
   Future<bool> toggleBookmark(String userId, String eventId) async {
-    final isCurrentlyBookmarked = await isBookmarked(userId, eventId);
-    
+    final isCurrentlyBookmarked =
+        await isBookmarked(userId, eventId);
+
     if (isCurrentlyBookmarked) {
       return await removeBookmark(userId, eventId);
     } else {
@@ -80,7 +84,8 @@ class BookmarkService {
       await _supabase
           .from('bookmarks')
           .delete()
-          .eq('student_id', userId);
+          .eq('user_id', userId);
+
       return true;
     } catch (e) {
       return false;

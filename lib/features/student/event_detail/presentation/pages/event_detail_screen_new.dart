@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
+import '../../../../../core/routes/route_names.dart';
 import '../../../../../core/services/registration_service.dart';
 import '../../../../../core/services/event_service.dart';
 import '../../../../../core/services/bookmark_service.dart';
@@ -145,14 +146,33 @@ Daftar sekarang di aplikasi EVENTTY!
     }
   }
 
-  void _showRegistrationDialog() {
+  void _showRegistrationDialog() async {
     if (_event == null) return;
     
     final authService = ref.read(authServiceProvider);
-    final userName = authService.userName ?? 'User';
-    final userNis = authService.userId ?? '';
-    final userId = authService.userId ?? '';
-    final userKelas = authService.userClass ?? 'XII RPL 1';
+    final nisAuthService = ref.read(nisAuthServiceProvider);
+    
+    // Get profile to ensure we have correct data
+    final profile = await nisAuthService.getCurrentUserProfile();
+    
+    if (profile == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal memuat data profil. Silakan login kembali.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
+    }
+
+    final userId = profile.id;
+    final userName = profile.fullName;
+    final userNis = profile.nis ?? '';
+    final userKelas = await authService.getUserClass();
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -177,7 +197,8 @@ Daftar sekarang di aplikasi EVENTTY!
             Navigator.pop(context);
 
             if (result.success) {
-              setState(() => _isRegistered = true);
+              // Immediately update registration status
+              await _checkRegistrationStatus();
               _showSuccessDialog(result.message);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -223,6 +244,32 @@ Daftar sekarang di aplikasi EVENTTY!
         ],
       ),
     );
+  }
+
+  String _getStatusText() {
+    switch (_event!.status.toLowerCase()) {
+      case 'open':
+        return 'Pendaftaran Dibuka';
+      case 'ongoing':
+        return 'Sedang Berlangsung';
+      case 'closed':
+        return 'Pendaftaran Ditutup';
+      default:
+        return 'Pendaftaran Ditutup';
+    }
+  }
+
+  Color _getStatusColor() {
+    switch (_event!.status.toLowerCase()) {
+      case 'open':
+        return AppColors.success;
+      case 'ongoing':
+        return AppColors.warning;
+      case 'closed':
+        return AppColors.error;
+      default:
+        return AppColors.error;
+    }
   }
 
   Color _getCategoryColor() {
@@ -310,11 +357,6 @@ Daftar sekarang di aplikasi EVENTTY!
                         color: AppColors.textSecondary,
                       ),
                     ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Highlight Event
-                    _buildHighlightSection(),
                     
                     const SizedBox(height: 24),
                     
@@ -453,18 +495,16 @@ Daftar sekarang di aplikasi EVENTTY!
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _event!.status == 'open' 
-                      ? AppColors.success 
-                      : AppColors.error,
+                  color: _getStatusColor(),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check_circle, size: 12, color: Colors.white),
+                    Icon(Icons.info, size: 12, color: Colors.white),
                     const SizedBox(width: 4),
                     Text(
-                      _event!.status == 'open' ? 'Pendaftaran Dibuka' : 'Pendaftaran Ditutup',
+                      _getStatusText(),
                       style: AppTextStyles.captionSmall.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -546,15 +586,13 @@ Daftar sekarang di aplikasi EVENTTY!
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: _event!.status == 'open' 
-                        ? AppColors.success.withValues(alpha: 0.15)
-                        : AppColors.error.withValues(alpha: 0.15),
+                    color: _getStatusColor().withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    _event!.status == 'open' ? '✓ Pendaftaran Dibuka' : '✕ Pendaftaran Ditutup',
+                    _getStatusText(),
                     style: AppTextStyles.captionSmall.copyWith(
-                      color: _event!.status == 'open' ? AppColors.success : AppColors.error,
+                      color: _getStatusColor(),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -589,23 +627,68 @@ Daftar sekarang di aplikasi EVENTTY!
   }
 
   Widget _buildQuickInfoGrid() {
-    return Row(
+    // Format tanggal dengan benar menggunakan Indonesia locale
+    final formattedDate = DateFormat('d MMMM yyyy', 'id_ID').format(_event!.date);
+    final formattedDeadline = _event!.registrationDeadline != null 
+        ? DateFormat('d MMMM yyyy', 'id_ID').format(_event!.registrationDeadline!)
+        : null;
+    
+    return Column(
       children: [
-        Expanded(
-          child: _buildQuickInfoCard(
-            icon: Icons.calendar_today,
-            label: 'Tanggal',
-            value: DateFormat('d Dec yyyy', 'id').format(_event!.date),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _buildQuickInfoCard(
+                icon: Icons.calendar_today,
+                label: 'Tanggal',
+                value: formattedDate,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildQuickInfoCard(
+                icon: Icons.access_time,
+                label: 'Waktu',
+                value: _event!.time,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildQuickInfoCard(
-            icon: Icons.access_time,
-            label: 'Waktu',
-            value: _event!.time,
-          ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildQuickInfoCard(
+                icon: Icons.location_on,
+                label: 'Lokasi',
+                value: _event!.location,
+              ),
+            ),
+            if (formattedDeadline != null) ...[
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildQuickInfoCard(
+                  icon: Icons.event_busy,
+                  label: 'Deadline',
+                  value: formattedDeadline,
+                ),
+              ),
+            ],
+          ],
         ),
+        if (_event!.certificateEnabled) ...[
+          const SizedBox(height: 12),
+          _buildQuickInfoCard(
+            icon: Icons.card_membership,
+            label: 'Sertifikat',
+            value: _event!.certificateType == CertificateType.allParticipants 
+                ? 'Tersedia untuk semua peserta'
+                : _event!.certificateType == CertificateType.winners
+                    ? 'Tersedia untuk pemenang'
+                    : 'Tidak tersedia',
+            fullWidth: true,
+          ),
+        ],
       ],
     );
   }
@@ -614,6 +697,7 @@ Daftar sekarang di aplikasi EVENTTY!
     required IconData icon,
     required String label,
     required String value,
+    bool fullWidth = false,
   }) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -651,7 +735,7 @@ Daftar sekarang di aplikasi EVENTTY!
                     fontWeight: FontWeight.w600,
                     fontSize: 12,
                   ),
-                  maxLines: 1,
+                  maxLines: fullWidth ? 2 : 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -681,142 +765,6 @@ Daftar sekarang di aplikasi EVENTTY!
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildHighlightSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Text('✨', style: TextStyle(fontSize: 20)),
-                const SizedBox(width: 8),
-                Text(
-                  'Highlight Event',
-                  style: AppTextStyles.titleMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            TextButton(
-              onPressed: () {},
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Lihat Semua',
-                    style: AppTextStyles.caption.copyWith(
-                      color: _getCategoryColor(),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.arrow_forward_ios, size: 12, color: _getCategoryColor()),
-                ],
-              ),
-            ),
-          ],
-        ),
-        
-        const SizedBox(height: 16),
-        
-        Row(
-          children: [
-            Expanded(
-              child: _buildHighlightCard(
-                emoji: '🏆',
-                title: 'Hadiah',
-                subtitle: 'Menarik',
-                color: Colors.amber,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildHighlightCard(
-                emoji: '👥',
-                title: 'Peserta',
-                subtitle: 'Max ${_event!.capacity} orang',
-                color: Colors.blue,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildHighlightCard(
-                emoji: '🎁',
-                title: 'Benefit',
-                subtitle: 'Pengalaman',
-                color: Colors.pink,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHighlightCard({
-    required String emoji,
-    required String title,
-    required String subtitle,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            color.withValues(alpha: 0.1),
-            color.withValues(alpha: 0.05),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(emoji, style: TextStyle(fontSize: 24)),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: AppTextStyles.caption.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: AppTextStyles.captionSmall.copyWith(
-              color: AppColors.textSecondary,
-              fontSize: 10,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
     );
   }
 
@@ -858,7 +806,7 @@ Daftar sekarang di aplikasi EVENTTY!
               eventTitle: _event!.title,
               initialMessage: 'Saya ingin bertanya tentang ${_event!.title}.',
             );
-            context.go('/messages');
+            context.go(RouteNames.messages);
           },
         ),
       ],
@@ -1056,6 +1004,13 @@ Daftar sekarang di aplikasi EVENTTY!
   }
 
   Widget _buildBottomButton() {
+    // Check if registration can proceed
+    final canRegister = _event!.status == 'open' && 
+                        !_isRegistered &&
+                        (_event!.registrationDeadline == null || 
+                         DateTime.now().isBefore(_event!.registrationDeadline!)) &&
+                        _event!.registered < _event!.capacity;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1069,36 +1024,16 @@ Daftar sekarang di aplikasi EVENTTY!
         ],
       ),
       child: SafeArea(
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _getCategoryColor().withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(Icons.edit_rounded, color: _getCategoryColor(), size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: AppButton(
-                text: _isRegistered ? 'Sudah Terdaftar' : 'Daftar Sekarang',
-                onPressed: _isRegistered || _event!.status != 'open' 
-                    ? null 
-                    : _showRegistrationDialog,
-                backgroundColor: _isRegistered ? AppColors.success : _getCategoryColor(),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.pink.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(Icons.favorite_border, color: Colors.pink, size: 24),
-            ),
-          ],
+        child: AppButton(
+          text: _isRegistered 
+              ? 'Sudah Terdaftar' 
+              : !canRegister
+                  ? 'Pendaftaran Ditutup'
+                  : 'Daftar Sekarang',
+          onPressed: canRegister ? _showRegistrationDialog : null,
+          backgroundColor: _isRegistered 
+              ? AppColors.success 
+              : _getCategoryColor(),
         ),
       ),
     );
@@ -1161,7 +1096,7 @@ Daftar sekarang di aplikasi EVENTTY!
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _documentation!.description,
+                  _documentation!.description ?? '',
                   style: AppTextStyles.body2.copyWith(
                     color: AppColors.textSecondary,
                     height: 1.5,
@@ -1172,17 +1107,19 @@ Daftar sekarang di aplikasi EVENTTY!
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () async {
-                      final url = Uri.parse(_documentation!.googleDriveUrl);
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(url, mode: LaunchMode.externalApplication);
-                      } else {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Tidak dapat membuka link'),
-                              backgroundColor: AppColors.error,
-                            ),
-                          );
+                      if (_documentation?.fileUrl != null) {
+                        final url = Uri.parse(_documentation!.fileUrl);
+                        if (await canLaunchUrl(url)) {
+                          await launchUrl(url, mode: LaunchMode.externalApplication);
+                        } else {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Tidak dapat membuka link'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
                         }
                       }
                     },

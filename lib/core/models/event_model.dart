@@ -88,6 +88,7 @@ class EventModel {
                             category.toLowerCase().contains('tournament') ||
                             certificateType == CertificateType.winners;
 
+  /// Convert to JSON for Supabase (snake_case)
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
@@ -100,26 +101,27 @@ class EventModel {
         'capacity': capacity,
         'registered': registered,
         'status': status,
-        'imageUrl': imageUrl,
-        'isFeatured': isFeatured,
-        'isPopular': isPopular,
-        'isPublished': isPublished,
-        'isRegistrationOpen': isRegistrationOpen,
+        'image_url': imageUrl,
+        'is_featured': isFeatured,
+        'is_popular': isPopular,
+        'is_published': isPublished,
+        'is_registration_open': isRegistrationOpen,
         'tags': tags,
-        'createdAt': createdAt.toIso8601String(),
-        'registrationDeadline': registrationDeadline?.toIso8601String(),
-        'certificateEnabled': certificateEnabled,
-        'certificateType': certificateType.name,
-        'minimumAttendance': minimumAttendance,
-        'registrationType': registrationType.name,
+        'created_at': createdAt.toIso8601String(),
+        'registration_deadline': registrationDeadline?.toIso8601String(),
+        'certificate_enabled': certificateEnabled,
+        'certificate_type': certificateType.name,
+        'minimum_attendance': minimumAttendance,
+        'registration_type': registrationType.name,
       };
 
+  /// Create from JSON from Supabase (snake_case)
   factory EventModel.fromJson(Map<String, dynamic> json) {
     CertificateType certType = CertificateType.none;
-    if (json['certificateType'] != null) {
+    if (json['certificate_type'] != null) {
       try {
         certType = CertificateType.values.firstWhere(
-          (e) => e.name == json['certificateType'],
+          (e) => e.name == json['certificate_type'],
           orElse: () => CertificateType.none,
         );
       } catch (e) {
@@ -128,10 +130,10 @@ class EventModel {
     }
     
     RegistrationType regType = RegistrationType.individual;
-    if (json['registrationType'] != null) {
+    if (json['registration_type'] != null) {
       try {
         regType = RegistrationType.values.firstWhere(
-          (e) => e.name == json['registrationType'],
+          (e) => e.name == json['registration_type'],
           orElse: () => RegistrationType.individual,
         );
       } catch (e) {
@@ -167,21 +169,21 @@ class EventModel {
       capacity: json['capacity'] as int,
       registered: json['registered'] as int? ?? 0,
       status: json['status'] as String? ?? 'open',
-      imageUrl: json['imageUrl'] as String?,
-      isFeatured: json['isFeatured'] as bool? ?? false,
-      isPopular: json['isPopular'] as bool? ?? false,
-      isPublished: json['isPublished'] as bool? ?? false,
-      isRegistrationOpen: json['isRegistrationOpen'] as bool? ?? true,
+      imageUrl: json['image_url'] as String?,
+      isFeatured: json['is_featured'] as bool? ?? false,
+      isPopular: json['is_popular'] as bool? ?? false,
+      isPublished: json['is_published'] as bool? ?? false,
+      isRegistrationOpen: json['is_registration_open'] as bool? ?? true,
       tags: parsedTags,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
-      registrationDeadline: json['registrationDeadline'] != null
-          ? DateTime.parse(json['registrationDeadline'] as String)
+      registrationDeadline: json['registration_deadline'] != null
+          ? DateTime.parse(json['registration_deadline'] as String)
           : null,
-      certificateEnabled: json['certificateEnabled'] as bool? ?? false,
+      certificateEnabled: json['certificate_enabled'] as bool? ?? false,
       certificateType: certType,
-      minimumAttendance: json['minimumAttendance'] as int?,
+      minimumAttendance: json['minimum_attendance'] as int?,
       registrationType: regType,
     );
   }

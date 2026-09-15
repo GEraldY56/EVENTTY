@@ -17,13 +17,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
   String _searchQuery = '';
   final ChatService _chatService = ChatService();
   List<Conversation> _conversations = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _loadConversations();
     
-    // Listen to conversations stream
+    
+    // Listen to conversations stream - realtime
     _chatService.getConversationsStream().listen((conversations) {
       if (mounted) {
         setState(() {
@@ -31,13 +32,20 @@ class _MessagesScreenState extends State<MessagesScreen> {
         });
       }
     });
+    
+    // Load conversations and trigger stream
+    _loadConversations();
   }
 
   Future<void> _loadConversations() async {
+    setState(() => _isLoading = true);
+    
     final conversations = await _chatService.getAllConversations();
+    
     if (mounted) {
       setState(() {
         _conversations = conversations;
+        _isLoading = false;
       });
     }
   }
@@ -106,17 +114,22 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
           // Conversations List
           Expanded(
-            child: filteredConversations.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.horizontalPadding,
-                    ),
-                    itemCount: filteredConversations.length,
-                    itemBuilder: (context, index) {
-                      final conversation = filteredConversations[index];
-                      return _buildConversationCard(conversation);
-                    },
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _loadConversations,
+                    child: filteredConversations.isEmpty
+                        ? _buildEmptyState()
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.horizontalPadding,
+                            ),
+                            itemCount: filteredConversations.length,
+                            itemBuilder: (context, index) {
+                              final conversation = filteredConversations[index];
+                              return _buildConversationCard(conversation);
+                            },
+                          ),
                   ),
           ),
         ],

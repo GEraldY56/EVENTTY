@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'colors.dart';
 
 /// App Text Styles - Using Plus Jakarta Sans Font (sesuai Design System)
+/// Colors are NOT set here - they are inherited from Theme or set explicitly via copyWith()
 class AppTextStyles {
   AppTextStyles._();
 
@@ -12,7 +12,6 @@ class AppTextStyles {
   static TextStyle heading1 = GoogleFonts.plusJakartaSans(
     fontSize: 24,
     fontWeight: FontWeight.w600, // Semibold
-    color: AppColors.textPrimary,
     height: 1.3,
     letterSpacing: -0.5,
   );
@@ -20,7 +19,6 @@ class AppTextStyles {
   static TextStyle heading2 = GoogleFonts.plusJakartaSans(
     fontSize: 20,
     fontWeight: FontWeight.w600,
-    color: AppColors.textPrimary,
     height: 1.3,
     letterSpacing: -0.3,
   );
@@ -28,7 +26,6 @@ class AppTextStyles {
   static TextStyle heading3 = GoogleFonts.plusJakartaSans(
     fontSize: 18,
     fontWeight: FontWeight.w600,
-    color: AppColors.textPrimary,
     height: 1.3,
     letterSpacing: -0.2,
   );
@@ -37,21 +34,18 @@ class AppTextStyles {
   static TextStyle title = GoogleFonts.plusJakartaSans(
     fontSize: 16,
     fontWeight: FontWeight.w500, // Medium
-    color: AppColors.textPrimary,
     height: 1.4,
   );
 
   static TextStyle titleMedium = GoogleFonts.plusJakartaSans(
     fontSize: 14,
     fontWeight: FontWeight.w500,
-    color: AppColors.textPrimary,
     height: 1.4,
   );
 
   static TextStyle titleSmall = GoogleFonts.plusJakartaSans(
     fontSize: 12,
     fontWeight: FontWeight.w500,
-    color: AppColors.textPrimary,
     height: 1.4,
   );
 
@@ -59,14 +53,12 @@ class AppTextStyles {
   static TextStyle subtitle = GoogleFonts.plusJakartaSans(
     fontSize: 14,
     fontWeight: FontWeight.w500,
-    color: AppColors.textSecondary,
     height: 1.5,
   );
 
   static TextStyle subtitleSmall = GoogleFonts.plusJakartaSans(
     fontSize: 12,
     fontWeight: FontWeight.w500,
-    color: AppColors.textSecondary,
     height: 1.5,
   );
 
@@ -74,14 +66,12 @@ class AppTextStyles {
   static TextStyle body1 = GoogleFonts.plusJakartaSans(
     fontSize: 14,
     fontWeight: FontWeight.normal,
-    color: AppColors.textPrimary,
     height: 1.6,
   );
 
   static TextStyle body2 = GoogleFonts.plusJakartaSans(
     fontSize: 12,
     fontWeight: FontWeight.normal,
-    color: AppColors.textSecondary,
     height: 1.6,
   );
 
@@ -89,14 +79,12 @@ class AppTextStyles {
   static TextStyle caption = GoogleFonts.plusJakartaSans(
     fontSize: 11,
     fontWeight: FontWeight.normal,
-    color: AppColors.textTertiary,
     height: 1.4,
   );
 
   static TextStyle captionSmall = GoogleFonts.plusJakartaSans(
     fontSize: 10,
     fontWeight: FontWeight.normal,
-    color: AppColors.textTertiary,
     height: 1.4,
   );
 
@@ -104,7 +92,7 @@ class AppTextStyles {
   static TextStyle button = GoogleFonts.plusJakartaSans(
     fontSize: 14,
     fontWeight: FontWeight.w600,
-    color: Colors.white,
+    color: Colors.white, // Buttons usually white text
     height: 1.2,
     letterSpacing: 0.3,
   );
@@ -112,7 +100,7 @@ class AppTextStyles {
   static TextStyle buttonSmall = GoogleFonts.plusJakartaSans(
     fontSize: 12,
     fontWeight: FontWeight.w600,
-    color: Colors.white,
+    color: Colors.white, // Buttons usually white text
     height: 1.2,
     letterSpacing: 0.3,
   );
@@ -121,14 +109,13 @@ class AppTextStyles {
   static TextStyle logo = GoogleFonts.plusJakartaSans(
     fontSize: 20,
     fontWeight: FontWeight.bold,
-    color: AppColors.primary,
     letterSpacing: -0.5,
   );
 
   static TextStyle bannerTitle = GoogleFonts.plusJakartaSans(
     fontSize: 20,
     fontWeight: FontWeight.bold,
-    color: Colors.white,
+    color: Colors.white, // Banners always white text
     height: 1.2,
     letterSpacing: -0.3,
   );
@@ -136,14 +123,12 @@ class AppTextStyles {
   static TextStyle cardTitle = GoogleFonts.plusJakartaSans(
     fontSize: 16,
     fontWeight: FontWeight.w600,
-    color: AppColors.textPrimary,
     height: 1.3,
   );
 
   static TextStyle cardSubtitle = GoogleFonts.plusJakartaSans(
     fontSize: 12,
     fontWeight: FontWeight.normal,
-    color: AppColors.textSecondary,
     height: 1.4,
   );
 
@@ -163,7 +148,6 @@ class AppTextStyles {
   static TextStyle greeting = GoogleFonts.plusJakartaSans(
     fontSize: 14,
     fontWeight: FontWeight.normal,
-    color: AppColors.textSecondary,
     height: 1.4,
   );
   
@@ -171,9 +155,7 @@ class AppTextStyles {
   static TextStyle username = GoogleFonts.plusJakartaSans(
     fontSize: 18,
     fontWeight: FontWeight.w600,
-    color: AppColors.textPrimary,
     height: 1.3,
     letterSpacing: -0.2,
   );
 }
-

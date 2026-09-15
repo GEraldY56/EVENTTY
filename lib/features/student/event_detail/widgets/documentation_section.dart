@@ -110,7 +110,7 @@ class DocumentationSection extends StatelessWidget {
           if (documentation != null) ...[
             // Description
             Text(
-              documentation!.description,
+              documentation!.description ?? '',
               style: AppTextStyles.body2.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.5,
@@ -123,7 +123,9 @@ class DocumentationSection extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => _openGoogleDrive(context, documentation!.googleDriveUrl),
+                onPressed: () => documentation?.fileUrl != null 
+                  ? _openGoogleDrive(context, documentation!.fileUrl) 
+                  : null,
                 icon: const Icon(Icons.folder_open, size: 20),
                 label: const Text('Lihat Dokumentasi'),
                 style: ElevatedButton.styleFrom(

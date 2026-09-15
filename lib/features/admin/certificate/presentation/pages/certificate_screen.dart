@@ -18,7 +18,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
   final CertificateService _certificateService = CertificateService();
   List<EventModel> _events = [];
   bool _isLoading = true;
-  Map<String, int> _certificateCounts = {};
+  final Map<String, int> _certificateCounts = {};
 
   @override
   void initState() {
@@ -408,7 +408,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '✓ Peserta sudah melakukan absensi (status = attended)',
+                    '✓ Peserta sudah di-approve (status = confirmed)',
                     style: AppTextStyles.caption.copyWith(color: AppColors.info),
                   ),
                   Text(
@@ -464,42 +464,58 @@ class _CertificateScreenState extends State<CertificateScreen> {
     );
 
     try {
-      // Get participants from registrations table (attended status)
+      // Get participants from registrations table (confirmed status = approved participants)
       final registrationsResponse = await Supabase.instance.client
           .from('registrations')
           .select()
           .eq('event_id', event.id)
-          .eq('status', 'attended');
+          .eq('status', 'confirmed');
       
-      // Convert to ParticipantModel format
-      final participants = (registrationsResponse as List).map((json) {
-        return ParticipantModel(
-          id: json['id'] as String,
-          eventId: json['event_id'] as String,
-          studentId: json['student_id'] as String,
-          studentName: json['student_name'] as String,
-          studentNis: json['student_id'] as String, // Using student_id as NIS fallback
-          studentClass: json['student_class'] as String? ?? '',
-          email: json['student_email'] as String? ?? '',
-          phone: json['student_phone'] as String? ?? '',
-          registrationDate: DateTime.parse(json['registered_at'] as String),
-          status: ParticipantStatus.attended,
-          hasCertificate: false,
-        );
-      }).toList();
-      
-      if (participants.isEmpty) {
+      if (registrationsResponse.isEmpty) {
         if (!mounted) return;
         Navigator.pop(context); // Close loading dialog
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('⚠️ Tidak ada peserta yang sudah attended untuk event ini'),
+            content: Text('⚠️ Tidak ada peserta yang sudah di-approve untuk event ini'),
             backgroundColor: AppColors.warning,
           ),
         );
         return;
       }
+      
+      // Convert registrations to participants
+      final participants = (registrationsResponse as List).map((reg) {
+        // Handle both individual and team registrations
+        final isIndividual = reg['type'] == 'individual';
+        
+        if (isIndividual) {
+          return ParticipantModel(
+            id: reg['id'],
+            eventId: reg['event_id'],
+            studentId: reg['user_id'] ?? '',
+            studentName: reg['user_name'] ?? '',
+            studentNis: reg['form_data']['nis'] ?? '',
+            studentClass: reg['form_data']['kelas'] ?? '',
+            email: reg['form_data']['email'] ?? '',
+            phone: reg['form_data']['phone'] ?? '',
+            status: ParticipantStatus.approved,
+          );
+        } else {
+          // For team registrations, return leader as participant
+          return ParticipantModel(
+            id: reg['id'],
+            eventId: reg['event_id'],
+            studentId: reg['leader_id'] ?? '',
+            studentName: reg['leader_name'] ?? reg['team_name'] ?? '',
+            studentNis: reg['form_data']['leader_nis'] ?? '',
+            studentClass: reg['class_name'] ?? '',
+            email: reg['form_data']['email'] ?? '',
+            phone: reg['form_data']['phone'] ?? '',
+            status: ParticipantStatus.approved,
+          );
+        }
+      }).toList();
       
       // Generate certificates
       final generated = await _certificateService.generateCertificatesForEvent(

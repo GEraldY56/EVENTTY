@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/event_model.dart';
 import '../utils/logger.dart';
+import 'notification_service.dart';
 
 class EventService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -175,17 +176,67 @@ class EventService {
   // ============================================================
   // CREATE EVENT
   // ============================================================
+  // Strip 'id' from the insert payload so the database generates
+  // a UUID via DEFAULT uuid_generate_v4(). Passing an empty string
+  // for 'id' would cause a Supabase UUID format error.
+  // ============================================================
   Future<bool> createEvent(EventModel event) async {
     try {
-      await _supabase
+      final payload = event.toJson()..remove('id');
+      final response = await _supabase
           .from('events')
-          .insert(event.toJson());
+          .insert(payload)
+          .select()
+          .single();
+
+      // Send notification if event is published
+      if (event.isPublished) {
+        final eventId = response['id'] as String;
+        _sendEventPublishedNotification(
+          eventId: eventId,
+          eventTitle: event.title,
+        );
+      }
 
       return true;
     } catch (e) {
       AppLogger.error('Error creating event', e);
       return false;
     }
+  }
+
+  /// Send notification when event is published (fire-and-forget)
+  void _sendEventPublishedNotification({
+    required String eventId,
+    required String eventTitle,
+  }) {
+    // Fire-and-forget: don't await, don't block main operation
+    Future(() async {
+      try {
+        final notificationService = NotificationService();
+        
+        // Get all student user IDs
+        final studentsResponse = await _supabase
+            .from('profiles')
+            .select('id')
+            .eq('role', 'student');
+        
+        final studentIds = (studentsResponse as List)
+            .map((profile) => profile['id'] as String)
+            .toList();
+        
+        if (studentIds.isEmpty) return;
+        
+        await notificationService.notifyEventPublished(
+          eventId: eventId,
+          eventTitle: eventTitle,
+          targetUserIds: studentIds,
+        );
+      } catch (e) {
+        // Silent fail - don't break event creation
+        AppLogger.error('Failed to send event published notification', e);
+      }
+    });
   }
 
   // ============================================================

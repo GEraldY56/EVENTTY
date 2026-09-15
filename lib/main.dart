@@ -20,15 +20,8 @@ Future<void> main() async {
   // Initialize date formatting for locale
   await initializeDateFormatting('id_ID', null);
 
-  // Set system UI overlay style
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: Colors.white,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    ),
-  );
+  // Note: SystemUIOverlayStyle will be controlled by AppBar theme
+  // This allows dynamic adaptation to light/dark mode
 
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([

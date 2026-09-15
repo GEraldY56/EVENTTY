@@ -47,39 +47,39 @@ class CertificateModel {
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'eventId': eventId,
-        'eventTitle': eventTitle,
-        'eventCategory': eventCategory,
-        'participantId': participantId,
-        'participantName': participantName,
-        'participantNis': participantNis,
-        'templateId': templateId,
-        'eventDate': eventDate.toIso8601String(),
-        'issuedDate': issuedDate.toIso8601String(),
-        'certificateNumber': certificateNumber,
-        'signedBy': signedBy,
-        'additionalInfo': additionalInfo,
+        'event_id': eventId,
+        'event_title': eventTitle,
+        'event_category': eventCategory,
+        'participant_id': participantId,
+        'participant_name': participantName,
+        'participant_nis': participantNis,
+        'template_id': templateId,
+        'event_date': eventDate.toIso8601String(),
+        'issued_date': issuedDate.toIso8601String(),
+        'certificate_number': certificateNumber,
+        'signed_by': signedBy,
+        'additional_info': additionalInfo,
         'achievement': achievement,
       };
 
   factory CertificateModel.fromJson(Map<String, dynamic> json) => CertificateModel(
         id: json['id'] as String,
-        eventId: json['eventId'] as String,
-        eventTitle: json['eventTitle'] as String,
-        eventCategory: json['eventCategory'] as String? ?? 'Event',
-        participantId: json['participantId'] as String,
-        participantName: json['participantName'] as String,
-        participantNis: json['participantNis'] as String,
-        templateId: json['templateId'] as String,
-        eventDate: json['eventDate'] != null
-            ? DateTime.parse(json['eventDate'] as String)
+        eventId: json['event_id'] as String,
+        eventTitle: json['event_title'] as String,
+        eventCategory: json['event_category'] as String? ?? 'Event',
+        participantId: json['participant_id'] as String,
+        participantName: json['participant_name'] as String,
+        participantNis: json['participant_nis'] as String,
+        templateId: json['template_id'] as String,
+        eventDate: json['event_date'] != null
+            ? DateTime.parse(json['event_date'] as String)
             : DateTime.now(),
-        issuedDate: json['issuedDate'] != null
-            ? DateTime.parse(json['issuedDate'] as String)
+        issuedDate: json['issued_date'] != null
+            ? DateTime.parse(json['issued_date'] as String)
             : DateTime.now(),
-        certificateNumber: json['certificateNumber'] as String,
-        signedBy: json['signedBy'] as String? ?? 'OSIS SMKN 20 Jakarta',
-        additionalInfo: json['additionalInfo'] as String?,
+        certificateNumber: json['certificate_number'] as String,
+        signedBy: json['signed_by'] as String? ?? 'OSIS SMKN 20 Jakarta',
+        additionalInfo: json['additional_info'] as String?,
         achievement: json['achievement'] as String?,
       );
 
@@ -154,16 +154,16 @@ class CertificateTemplateModel {
         'id': id,
         'name': name,
         'description': description,
-        'layoutType': layoutType.name,
-        'backgroundColor': backgroundColor,
-        'borderColor': borderColor,
-        'textColor': textColor,
-        'accentColor': accentColor,
-        'hasLogo': hasLogo,
-        'hasBorder': hasBorder,
-        'hasSignature': hasSignature,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt?.toIso8601String(),
+        'layout_type': layoutType.name,
+        'background_color': backgroundColor,
+        'border_color': borderColor,
+        'text_color': textColor,
+        'accent_color': accentColor,
+        'has_logo': hasLogo,
+        'has_border': hasBorder,
+        'has_signature': hasSignature,
+        'created_at': createdAt.toIso8601String(),
+        'updated_at': updatedAt?.toIso8601String(),
       };
 
   factory CertificateTemplateModel.fromJson(Map<String, dynamic> json) =>
@@ -172,19 +172,19 @@ class CertificateTemplateModel {
         name: json['name'] as String,
         description: json['description'] as String,
         layoutType: CertificateLayoutType.values.firstWhere(
-          (e) => e.name == json['layoutType'],
+          (e) => e.name == json['layout_type'],
           orElse: () => CertificateLayoutType.modern,
         ),
-        backgroundColor: json['backgroundColor'] as String? ?? '#FFFFFF',
-        borderColor: json['borderColor'] as String? ?? '#6B4F3A',
-        textColor: json['textColor'] as String? ?? '#1A1A1A',
-        accentColor: json['accentColor'] as String? ?? '#C89B6D',
-        hasLogo: json['hasLogo'] as bool? ?? true,
-        hasBorder: json['hasBorder'] as bool? ?? true,
-        hasSignature: json['hasSignature'] as bool? ?? true,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: json['updatedAt'] != null
-            ? DateTime.parse(json['updatedAt'] as String)
+        backgroundColor: json['background_color'] as String? ?? '#FFFFFF',
+        borderColor: json['border_color'] as String? ?? '#6B4F3A',
+        textColor: json['text_color'] as String? ?? '#1A1A1A',
+        accentColor: json['accent_color'] as String? ?? '#C89B6D',
+        hasLogo: json['has_logo'] as bool? ?? true,
+        hasBorder: json['has_border'] as bool? ?? true,
+        hasSignature: json['has_signature'] as bool? ?? true,
+        createdAt: DateTime.parse(json['created_at'] as String),
+        updatedAt: json['updated_at'] != null
+            ? DateTime.parse(json['updated_at'] as String)
             : null,
       );
 }

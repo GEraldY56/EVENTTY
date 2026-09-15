@@ -78,10 +78,12 @@ class CertificateService {
           .insert({
             'event_id': event.id,
             'event_title': event.title,
-            'student_id': participant.studentId,
-            'student_name': participant.studentName,
-            'certificate_type': certificateType,
+            'participant_id': participant.studentId,
+            'participant_name': participant.studentName,
+            'participant_nis': participant.studentNis,
             'certificate_number': certNumber,
+            'template_id': templateId,
+            'certificate_type': certificateType,
             'winner_position': winnerPosition,
           })
           .select()
@@ -130,8 +132,8 @@ class CertificateService {
       final response = await _supabase
           .from('certificates')
           .select()
-          .eq('student_id', studentId)
-          .order('issue_date', ascending: false);
+          .eq('participant_id', studentId)
+          .order('issued_date', ascending: false);
 
       return (response as List)
           .map(
@@ -197,7 +199,7 @@ class CertificateService {
       final response = await _supabase
           .from('certificates')
           .select('id')
-          .eq('student_id', studentId)
+          .eq('participant_id', studentId)
           .eq('event_id', eventId)
           .maybeSingle();
 
@@ -217,7 +219,7 @@ class CertificateService {
       final response = await _supabase
           .from('certificates')
           .select()
-          .eq('student_id', studentId)
+          .eq('participant_id', studentId)
           .eq('event_id', eventId)
           .maybeSingle();
 
@@ -317,10 +319,10 @@ class CertificateService {
         json['event_title'] as String? ?? event?.title ?? 'Event';
 
     final studentId =
-        json['student_id'] as String? ?? participant?.studentId ?? '';
+        json['participant_id'] as String? ?? participant?.studentId ?? '';
 
     final studentName =
-        json['student_name'] as String? ?? participant?.studentName ?? '';
+        json['participant_name'] as String? ?? participant?.studentName ?? '';
 
     final certificateType =
         json['certificate_type'] as String? ?? 'participation';
@@ -339,7 +341,7 @@ class CertificateService {
       participantNis: participant?.studentNis ?? studentId,
       templateId: templateId ?? '',
       eventDate: event?.date,
-      issuedDate: _parseDate(json['issue_date']) ?? DateTime.now(),
+      issuedDate: _parseDate(json['issued_date']) ?? DateTime.now(),
       certificateNumber: json['certificate_number'] as String? ?? '',
       signedBy: 'OSIS SMKN 20 Jakarta',
       additionalInfo: null,

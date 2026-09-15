@@ -236,7 +236,7 @@ class _SimpleRegistrationDialogState extends State<SimpleRegistrationDialog> {
                                 width: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white), // Keep white on primary button
                                 ),
                               )
                             : const Text('Daftar Sekarang'),

@@ -46,18 +46,49 @@ class _NotificationScreenState extends State<NotificationScreen> {
       await _loadNotifications(); // Reload to update UI
     }
     
-    // Navigate to target route
-    if (notification.targetRoute != null && mounted) {
-      String route = notification.targetRoute!;
-      
-      // Replace route parameters
-      if (notification.routeParams != null) {
-        notification.routeParams!.forEach((key, value) {
-          route = route.replaceAll(':$key', value);
-        });
-      }
-      
-      context.push(route);
+    // Navigate based on notification type and relatedId (frontend logic)
+    if (mounted) {
+      _navigateToTarget(notification);
+    }
+  }
+
+  void _navigateToTarget(NotificationModel notification) {
+    // Determine route based on notification type
+    switch (notification.type) {
+      case 'event_published':
+      case 'registration_opened':
+      case 'event_reminder':
+      case 'event_update':
+      case 'event_cancelled':
+        // Navigate to event detail
+        if (notification.relatedId != null) {
+          context.push('/events/${notification.relatedId}');
+        }
+        break;
+
+      case 'registration_approved':
+      case 'registration_rejected':
+        // Navigate to my events
+        context.push('/my-events');
+        break;
+
+      case 'certificate':
+        // Navigate to certificates
+        context.push('/certificate');
+        break;
+
+      case 'announcement':
+        // Navigate to news detail if has relatedId, otherwise news list
+        if (notification.relatedId != null) {
+          context.push('/news/${notification.relatedId}');
+        } else {
+          context.push('/news');
+        }
+        break;
+
+      default:
+        // No navigation for other types
+        break;
     }
   }
 
@@ -253,21 +284,20 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           color: AppColors.textTertiary,
                         ),
                       ),
-                      if (notification.targetRoute != null) ...[
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 12,
+                      // All notifications can be tapped, no need for indicator
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 12,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Tap to view',
+                        style: AppTextStyles.caption.copyWith(
                           color: AppColors.primary,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Tap to view',
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ],
+                      ),
                     ],
                   ),
                 ],
@@ -279,52 +309,52 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
-  IconData _getNotificationIcon(NotificationType type) {
+  IconData _getNotificationIcon(String type) {
     switch (type) {
-      case NotificationType.eventPublished:
+      case 'event_published':
         return Icons.event_rounded;
-      case NotificationType.registrationOpened:
+      case 'registration_opened':
         return Icons.how_to_reg_rounded;
-      case NotificationType.registrationApproved:
+      case 'registration_approved':
         return Icons.check_circle_rounded;
-      case NotificationType.registrationRejected:
+      case 'registration_rejected':
         return Icons.cancel_rounded;
-      case NotificationType.registrationClosed:
+      case 'registration_closed':
         return Icons.event_busy_rounded;
-      case NotificationType.newsPublished:
+      case 'announcement':
         return Icons.campaign_rounded;
-      case NotificationType.certificateAvailable:
+      case 'certificate':
         return Icons.workspace_premium_rounded;
-      case NotificationType.eventReminder:
+      case 'event_reminder':
         return Icons.alarm_rounded;
-      case NotificationType.eventCancelled:
+      case 'event_cancelled':
         return Icons.event_busy_rounded;
-      case NotificationType.eventUpdated:
+      case 'event_update':
         return Icons.update_rounded;
-      case NotificationType.general:
+      default:
         return Icons.notifications_rounded;
     }
   }
 
-  Color _getNotificationColor(NotificationType type) {
+  Color _getNotificationColor(String type) {
     switch (type) {
-      case NotificationType.eventPublished:
-      case NotificationType.registrationOpened:
+      case 'event_published':
+      case 'registration_opened':
         return AppColors.info;
-      case NotificationType.registrationApproved:
-      case NotificationType.certificateAvailable:
+      case 'registration_approved':
+      case 'certificate':
         return AppColors.success;
-      case NotificationType.registrationRejected:
-      case NotificationType.eventCancelled:
+      case 'registration_rejected':
+      case 'event_cancelled':
         return AppColors.error;
-      case NotificationType.registrationClosed:
+      case 'registration_closed':
         return AppColors.warning;
-      case NotificationType.newsPublished:
+      case 'announcement':
         return AppColors.secondary;
-      case NotificationType.eventReminder:
-      case NotificationType.eventUpdated:
+      case 'event_reminder':
+      case 'event_update':
         return AppColors.primary;
-      case NotificationType.general:
+      default:
         return AppColors.neutral400;
     }
   }

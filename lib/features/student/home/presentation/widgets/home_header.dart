@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
 import '../../../../../core/routes/route_names.dart';
+import '../../../../../core/services/notification_service.dart';
 
 class HomeHeader extends StatelessWidget {
   final String userName;
@@ -68,7 +70,7 @@ class HomeHeader extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.colors.surface,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
@@ -100,7 +102,7 @@ class HomeHeader extends StatelessWidget {
                         child: Text(
                           userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
                           style: AppTextStyles.heading3.copyWith(
-                            color: Colors.white,
+                            color: Colors.white, // Keep white on gradient
                             fontSize: 20,
                           ),
                         ),
@@ -147,19 +149,14 @@ class HomeHeader extends StatelessWidget {
             // Actions
             Row(
               children: [
-                _buildIconButton(
-                  icon: Icons.notifications_outlined,
-                  onTap: () {
-                    context.push(RouteNames.notification);
-                  },
-                  badge: 3,
-                ),
+                _buildNotificationButton(context),
                 const SizedBox(width: 8),
                 _buildIconButton(
                   icon: Icons.bookmark_border_rounded,
                   onTap: () {
                     context.push(RouteNames.myEvents);
                   },
+                  context: context,
                 ),
               ],
             ),
@@ -169,10 +166,49 @@ class HomeHeader extends StatelessWidget {
     );
   }
 
+  /// Build notification button with dynamic badge
+  Widget _buildNotificationButton(BuildContext context) {
+    return FutureBuilder<int>(
+      future: _getUnreadNotificationCount(),
+      builder: (context, snapshot) {
+        // Default to 0 if loading or error
+        final unreadCount = snapshot.data ?? 0;
+        
+        return _buildIconButton(
+          icon: Icons.notifications_outlined,
+          onTap: () {
+            context.push(RouteNames.notification);
+          },
+          badge: unreadCount > 0 ? unreadCount : null,
+          context: context,
+        );
+      },
+    );
+  }
+
+  /// Get unread notification count from service
+  Future<int> _getUnreadNotificationCount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId');
+      
+      if (userId == null || userId.isEmpty) {
+        return 0;
+      }
+      
+      final notificationService = NotificationService();
+      return await notificationService.getUnreadCount(userId);
+    } catch (e) {
+      // Silent fail - don't crash Home if notification count fails
+      return 0;
+    }
+  }
+
   Widget _buildIconButton({
     required IconData icon,
     required VoidCallback onTap,
     int? badge,
+    required BuildContext context,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -202,7 +238,7 @@ class HomeHeader extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: AppColors.error,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1.5),
+                    border: Border.all(color: context.colors.background, width: 1.5),
                   ),
                   constraints: const BoxConstraints(
                     minWidth: 18,
@@ -212,7 +248,7 @@ class HomeHeader extends StatelessWidget {
                     child: Text(
                       badge > 9 ? '9+' : '$badge',
                       style: AppTextStyles.captionSmall.copyWith(
-                        color: Colors.white,
+                        color: Colors.white, // Keep white on red badge
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
                       ),

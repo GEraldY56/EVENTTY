@@ -1,28 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
+import '../../../../../core/services/supabase_auth_service.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 
-class ChangePasswordScreen extends ConsumerStatefulWidget {
+class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
 
   @override
-  ConsumerState<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
+  State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
 }
 
-class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
+class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _authService = SupabaseAuthService();
+
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  bool _isLoading = false;
+
+  bool _isSubmitting = false;
   bool _obscureCurrentPassword = true;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
+
+  // ----------------------------------------------------------------
+  // Lifecycle
+  // ----------------------------------------------------------------
 
   @override
   void dispose() {
@@ -32,39 +39,61 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     super.dispose();
   }
 
+  // ----------------------------------------------------------------
+  // Submit
+  // ----------------------------------------------------------------
+
   Future<void> _handleChangePassword() async {
+    if (_isSubmitting) return; // prevent double submit
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    setState(() => _isSubmitting = true);
 
-    try {
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 1));
+    // Call Supabase Auth updateUser with new password.
+    // IMPORTANT LIMITATION: Supabase Auth does NOT verify the current password.
+    // The current password field is for user confirmation/UX only.
+    // updateUser() will succeed if the user has an active authenticated session.
+    final success = await _authService.updatePassword(
+      _newPasswordController.text.trim(),
+    );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password changed successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        context.pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to change password: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+    if (!mounted) return;
+
+    setState(() => _isSubmitting = false);
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Password berhasil diubah'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      context.pop(); // pop only on real success
+    } else {
+      _showSnackBar(
+        'Gagal mengubah password. Periksa koneksi dan coba lagi.',
+        isError: true,
+      );
+      // do NOT pop — stay on screen so user can retry
     }
   }
+
+  // ----------------------------------------------------------------
+  // Helpers
+  // ----------------------------------------------------------------
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.error : AppColors.success,
+      ),
+    );
+  }
+
+  // ----------------------------------------------------------------
+  // Build
+  // ----------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +102,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       appBar: AppBar(
         title: Text('Change Password', style: AppTextStyles.heading3),
         backgroundColor: AppColors.background,
+        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
@@ -113,6 +143,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               const SizedBox(height: AppSpacing.sectionGap),
 
               // Current Password
+              // Note: This field is for user confirmation only.
+              // Supabase Auth updateUser() does NOT verify current password.
               AppTextField(
                 controller: _currentPasswordController,
                 label: 'Current Password',
@@ -120,7 +152,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                 obscureText: _obscureCurrentPassword,
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscureCurrentPassword ? Icons.visibility_off : Icons.visibility,
+                    _obscureCurrentPassword
+                        ? Icons.visibility_off
+                        : Icons.visibility,
                     color: AppColors.textSecondary,
                   ),
                   onPressed: () {
@@ -130,7 +164,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   },
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Please enter current password';
                   }
                   return null;
@@ -147,7 +181,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                 obscureText: _obscureNewPassword,
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscureNewPassword ? Icons.visibility_off : Icons.visibility,
+                    _obscureNewPassword
+                        ? Icons.visibility_off
+                        : Icons.visibility,
                     color: AppColors.textSecondary,
                   ),
                   onPressed: () {
@@ -157,13 +193,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   },
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Please enter new password';
                   }
-                  if (value.length < 6) {
+                  if (value.trim().length < 6) {
                     return 'Password must be at least 6 characters';
                   }
-                  if (value == _currentPasswordController.text) {
+                  if (value.trim() == _currentPasswordController.text.trim()) {
                     return 'New password must be different from current';
                   }
                   return null;
@@ -180,7 +216,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                 obscureText: _obscureConfirmPassword,
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                    _obscureConfirmPassword
+                        ? Icons.visibility_off
+                        : Icons.visibility,
                     color: AppColors.textSecondary,
                   ),
                   onPressed: () {
@@ -190,10 +228,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   },
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Please confirm new password';
                   }
-                  if (value != _newPasswordController.text) {
+                  if (value.trim() != _newPasswordController.text.trim()) {
                     return 'Passwords do not match';
                   }
                   return null;
@@ -202,18 +240,18 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
               const SizedBox(height: AppSpacing.sectionGap),
 
-              // Change Password Button
+              // Change Password Button — disabled while submitting
               AppButton(
-                onPressed: _handleChangePassword,
-                text: 'Change Password',
-                isLoading: _isLoading,
+                onPressed: _isSubmitting ? null : _handleChangePassword,
+                text: _isSubmitting ? 'Mengubah password...' : 'Change Password',
+                isLoading: _isSubmitting,
               ),
 
               const SizedBox(height: AppSpacing.paddingMD),
 
               // Cancel Button
               AppButton(
-                onPressed: () => context.pop(),
+                onPressed: _isSubmitting ? null : () => context.pop(),
                 text: 'Cancel',
                 isOutlined: true,
               ),

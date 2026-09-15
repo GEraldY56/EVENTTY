@@ -1,33 +1,34 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/news_model.dart';
 
-/// News Service
-/// Mengelola CRUD news/article yang dibuat oleh Admin dengan Supabase
+/// News Service (Maps to announcements table in Database V3.2)
+/// Mengelola CRUD announcements yang dibuat oleh Admin dengan Supabase
+/// NOTE: NewsModel is kept for UI compatibility but queries announcements table
 class NewsService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  /// Get all published news
+  /// Get all published announcements
   Future<List<NewsModel>> getPublishedNews() async {
     try {
       final response = await _supabase
-          .from('news')
+          .from('announcements')
           .select('*')
           .eq('is_published', true)
-          .order('publish_date', ascending: false);
+          .order('created_at', ascending: false);
 
       return (response as List)
           .map((json) => NewsModel.fromJson(json))
           .toList();
     } catch (e) {
-      throw Exception('Failed to fetch news: $e');
+      throw Exception('Failed to fetch announcements: $e');
     }
   }
 
-  /// Get news by ID
+  /// Get announcement by ID
   Future<NewsModel?> getNewsById(String id) async {
     try {
       final response = await _supabase
-          .from('news')
+          .from('announcements')
           .select('*')
           .eq('id', id)
           .single();
@@ -38,31 +39,29 @@ class NewsService {
     }
   }
 
-  /// Get news by category
-  Future<List<NewsModel>> getNewsByCategory(String category) async {
+  /// Get announcements by event (filtered)
+  Future<List<NewsModel>> getNewsByEvent(String eventId) async {
     try {
       final response = await _supabase
-          .from('news')
+          .from('announcements')
           .select('*')
-          .eq('category', category)
+          .eq('event_id', eventId)
           .eq('is_published', true)
-          .order('publish_date', ascending: false);
+          .order('created_at', ascending: false);
 
       return (response as List)
           .map((json) => NewsModel.fromJson(json))
           .toList();
     } catch (e) {
-      throw Exception('Failed to fetch news by category: $e');
+      throw Exception('Failed to fetch announcements by event: $e');
     }
   }
 
-  /// Create news (Admin)
+  /// Create announcement (Admin)
   Future<NewsModel> createNews({
     required String title,
     required String content,
-    required String excerpt,
-    required String category,
-    String? imageUrl,
+    String? eventId,
     bool isPinned = false,
     bool isPublished = true,
   }) async {
@@ -70,44 +69,33 @@ class NewsService {
       final user = _supabase.auth.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
-      // Get user profile for author info
-      final profile = await _supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', user.id)
-          .single();
-
       final data = {
         'title': title,
         'content': content,
-        'category': category,
-        'author': profile['full_name'] ?? 'Admin',
         'author_id': user.id,
-        'image_url': imageUrl,
+        'event_id': eventId,
         'is_pinned': isPinned,
         'is_published': isPublished,
-        'views': 0,
       };
 
       final response = await _supabase
-          .from('news')
+          .from('announcements')
           .insert(data)
           .select()
           .single();
 
       return NewsModel.fromJson(response);
     } catch (e) {
-      throw Exception('Failed to create news: $e');
+      throw Exception('Failed to create announcement: $e');
     }
   }
 
-  /// Update news (Admin)
+  /// Update announcement (Admin)
   Future<NewsModel> updateNews(
     String id, {
     String? title,
     String? content,
-    String? category,
-    String? imageUrl,
+    String? eventId,
     bool? isPinned,
     bool? isPublished,
   }) async {
@@ -115,13 +103,12 @@ class NewsService {
       final data = <String, dynamic>{};
       if (title != null) data['title'] = title;
       if (content != null) data['content'] = content;
-      if (category != null) data['category'] = category;
-      if (imageUrl != null) data['image_url'] = imageUrl;
+      if (eventId != null) data['event_id'] = eventId;
       if (isPinned != null) data['is_pinned'] = isPinned;
       if (isPublished != null) data['is_published'] = isPublished;
 
       final response = await _supabase
-          .from('news')
+          .from('announcements')
           .update(data)
           .eq('id', id)
           .select()
@@ -129,42 +116,24 @@ class NewsService {
 
       return NewsModel.fromJson(response);
     } catch (e) {
-      throw Exception('Failed to update news: $e');
+      throw Exception('Failed to update announcement: $e');
     }
   }
 
-  /// Delete news (Admin)
+  /// Delete announcement (Admin)
   Future<void> deleteNews(String id) async {
     try {
-      await _supabase.from('news').delete().eq('id', id);
+      await _supabase.from('announcements').delete().eq('id', id);
     } catch (e) {
-      throw Exception('Failed to delete news: $e');
+      throw Exception('Failed to delete announcement: $e');
     }
   }
 
-  /// Increment view count
-  Future<void> incrementViews(String id) async {
-    try {
-      await _supabase.rpc('increment_news_views', params: {'news_id': id});
-    } catch (e) {
-      // Fallback: get current views and increment
-      try {
-        final news = await getNewsById(id);
-        if (news != null) {
-          await _supabase
-              .from('news')
-              .update({'views': news.views + 1})
-              .eq('id', id);
-        }
-      } catch (_) {}
-    }
-  }
-
-  /// Get all news (Admin - including draft)
+  /// Get all announcements (Admin - including draft)
   Future<List<NewsModel>> getAllNewsForAdmin() async {
     try {
       final response = await _supabase
-          .from('news')
+          .from('announcements')
           .select('*')
           .order('created_at', ascending: false);
 
@@ -172,7 +141,25 @@ class NewsService {
           .map((json) => NewsModel.fromJson(json))
           .toList();
     } catch (e) {
-      throw Exception('Failed to fetch all news: $e');
+      throw Exception('Failed to fetch all announcements: $e');
+    }
+  }
+
+  /// Get pinned announcements
+  Future<List<NewsModel>> getPinnedNews() async {
+    try {
+      final response = await _supabase
+          .from('announcements')
+          .select('*')
+          .eq('is_pinned', true)
+          .eq('is_published', true)
+          .order('created_at', ascending: false);
+
+      return (response as List)
+          .map((json) => NewsModel.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch pinned announcements: $e');
     }
   }
 }

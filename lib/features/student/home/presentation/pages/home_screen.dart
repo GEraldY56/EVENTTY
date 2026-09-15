@@ -12,6 +12,7 @@ import '../widgets/featured_event_carousel.dart';
 import '../widgets/quick_actions.dart';
 import '../widgets/category_grid.dart';
 import '../widgets/section_title.dart';
+import '../widgets/open_registration_list.dart';
 import '../widgets/upcoming_events_list.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -19,8 +20,8 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Get user name from provider
-    final userName = ref.watch(userNameProvider);
+    // Get user name from provider (now FutureProvider)
+    final userNameAsync = ref.watch(userNameProvider);
     // Get safe area insets untuk accurate bottom padding
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final bottomNavBarHeight = kBottomNavigationBarHeight; // 56.0
@@ -71,7 +72,11 @@ class HomeScreen extends ConsumerWidget {
             slivers: [
               // Modern Header dengan Greeting
               SliverToBoxAdapter(
-                child: HomeHeader(userName: userName),
+                child: userNameAsync.when(
+                  data: (userName) => HomeHeader(userName: userName),
+                  loading: () => HomeHeader(userName: 'Loading...'),
+                  error: (_, _) => HomeHeader(userName: 'User'),
+                ),
               ),
 
           // Content dengan padding
@@ -85,11 +90,7 @@ class HomeScreen extends ConsumerWidget {
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // Search Bar
-                SearchBarWidget(
-                  onTap: () {
-                    context.push(RouteNames.events);
-                  },
-                ),
+                const SearchBarWidget(),
 
                 const SizedBox(height: AppSpacing.sectionGap),
 
@@ -114,6 +115,20 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.paddingLG),
 
                 const CategoryGrid(),
+
+                const SizedBox(height: AppSpacing.sectionGap),
+
+                // Open Registration Section
+                SectionTitle(
+                  title: 'Open Registration',
+                  onSeeAll: () {
+                    context.push(RouteNames.events);
+                  },
+                ),
+
+                const SizedBox(height: AppSpacing.paddingLG),
+
+                const OpenRegistrationList(),
 
                 const SizedBox(height: AppSpacing.sectionGap),
 

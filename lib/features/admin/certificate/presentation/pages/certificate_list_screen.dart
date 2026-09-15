@@ -2,7 +2,17 @@ import 'package:flutter/material.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
+import '../../../../../core/services/certificate_service.dart';
+import '../../../../../core/services/event_service.dart';
+import '../../../../../core/models/certificate_model.dart';
 import '../widgets/certificate_preview_widget.dart';
+
+// PHASE 5: 4 sample certificates hardcoded REMOVED.
+// 'Classmeet 2026' hardcoded title REMOVED.
+// Data sekarang di-fetch dari Supabase via CertificateService.getEventCertificates().
+// Event title diambil dari EventService.getEventById().
+// UI layout dan preview dialog DIPERTAHANKAN.
+// REQUIRES RUNTIME DATABASE VERIFICATION — Supabase not yet tested at runtime.
 
 class CertificateListScreen extends StatefulWidget {
   final String eventId;
@@ -14,183 +24,295 @@ class CertificateListScreen extends StatefulWidget {
 }
 
 class _CertificateListScreenState extends State<CertificateListScreen> {
+  final CertificateService _certificateService = CertificateService();
+  final EventService _eventService = EventService();
+
   String _searchQuery = '';
-  
-  // Sample certificates data
-  final List<Map<String, dynamic>> _certificates = [
-    {
-      'id': 'cert_1',
-      'participantName': 'Muhammad Faqih',
-      'participantNis': '12345',
-      'certificateNumber': 'CERT-2026-001',
-      'issuedDate': '15 Agustus 2026',
-      'downloaded': false,
-    },
-    {
-      'id': 'cert_2',
-      'participantName': 'Ahmad Zaki',
-      'participantNis': '12346',
-      'certificateNumber': 'CERT-2026-002',
-      'issuedDate': '15 Agustus 2026',
-      'downloaded': true,
-    },
-    {
-      'id': 'cert_3',
-      'participantName': 'Siti Nurhaliza',
-      'participantNis': '12347',
-      'certificateNumber': 'CERT-2026-003',
-      'issuedDate': '15 Agustus 2026',
-      'downloaded': false,
-    },
-    {
-      'id': 'cert_4',
-      'participantName': 'Budi Santoso',
-      'participantNis': '12348',
-      'certificateNumber': 'CERT-2026-004',
-      'issuedDate': '15 Agustus 2026',
-      'downloaded': true,
-    },
-  ];
+  List<CertificateModel> _certificates = [];
+  String _eventTitle = '';
+  bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _errorMessage = '';
+    });
+
+    try {
+      // Fetch event title dan certificates secara paralel
+      final results = await Future.wait([
+        _eventService.getEventById(widget.eventId),
+        _certificateService.getEventCertificates(widget.eventId),
+      ]);
+
+      final event = results[0];
+      final certs = results[1] as List<CertificateModel>;
+
+      setState(() {
+        _eventTitle = (event != null)
+            ? (event as dynamic).title as String
+            : widget.eventId; // fallback ke eventId jika event tidak ditemukan
+        _certificates = certs;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _hasError = true;
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  List<CertificateModel> get _filteredCerts {
+    if (_searchQuery.isEmpty) return _certificates;
+    final query = _searchQuery.toLowerCase();
+    return _certificates.where((cert) {
+      return cert.participantName.toLowerCase().contains(query) ||
+          cert.participantNis.toLowerCase().contains(query) ||
+          cert.certificateNumber.toLowerCase().contains(query);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filteredCerts = _certificates.where((cert) {
-      if (_searchQuery.isEmpty) return true;
-      final name = (cert['participantName'] as String).toLowerCase();
-      final nis = cert['participantNis'] as String;
-      final query = _searchQuery.toLowerCase();
-      return name.contains(query) || nis.contains(query);
-    }).toList();
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text('Certificates', style: AppTextStyles.heading3),
         backgroundColor: AppColors.background,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.download),
-            onPressed: _handleDownloadAll,
-            tooltip: 'Download All',
-          ),
+          if (!_isLoading)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadData,
+              tooltip: 'Refresh',
+            ),
+          if (!_isLoading && _certificates.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.download),
+              onPressed: _handleDownloadAll,
+              tooltip: 'Download All',
+            ),
         ],
       ),
-      body: Column(
-        children: [
-          // Event Info Card
-          Container(
-            margin: const EdgeInsets.all(AppSpacing.horizontalPadding),
-            padding: const EdgeInsets.all(AppSpacing.paddingLG),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary,
-                  AppColors.primary.withValues(alpha: 0.8),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _hasError
+              ? _buildErrorState()
+              : Column(
                   children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
+                    // Event Info Card — judul dari database
+                    _buildEventInfoCard(),
+
+                    // Search Bar — hanya tampil jika ada data
+                    if (_certificates.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.horizontalPadding),
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Search by name, NIS, or cert number...',
+                            prefixIcon: const Icon(Icons.search),
+                            filled: true,
+                            fillColor: AppColors.card,
+                            border: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusLG),
+                              borderSide:
+                                  BorderSide(color: AppColors.border),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusLG),
+                              borderSide:
+                                  BorderSide(color: AppColors.border),
+                            ),
+                          ),
+                          onChanged: (value) =>
+                              setState(() => _searchQuery = value),
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.workspace_premium,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
+
+                    const SizedBox(height: 16),
+
+                    // Certificates List
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Classmeet 2026',
-                            style: AppTextStyles.titleMedium.copyWith(
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${_certificates.length} certificates generated',
-                            style: AppTextStyles.body2.copyWith(
-                              color: Colors.white.withValues(alpha: 0.9),
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: _certificates.isEmpty
+                          ? _buildEmptyState()
+                          : _filteredCerts.isEmpty
+                              ? _buildNoSearchResultState()
+                              : RefreshIndicator(
+                                  onRefresh: _loadData,
+                                  child: ListView.builder(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal:
+                                          AppSpacing.horizontalPadding,
+                                    ),
+                                    itemCount: _filteredCerts.length,
+                                    itemBuilder: (context, index) {
+                                      return _buildCertificateCard(
+                                          _filteredCerts[index]);
+                                    },
+                                  ),
+                                ),
                     ),
                   ],
                 ),
+    );
+  }
+
+  Widget _buildEventInfoCard() {
+    return Container(
+      margin: const EdgeInsets.all(AppSpacing.horizontalPadding),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary,
+            AppColors.primary.withValues(alpha: 0.8),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.workspace_premium,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  // Judul event nyata dari database, bukan hardcoded
+                  _eventTitle.isNotEmpty ? _eventTitle : 'Loading...',
+                  style: AppTextStyles.titleMedium.copyWith(
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_certificates.length} certificates generated',
+                  style: AppTextStyles.body2.copyWith(
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                ),
               ],
             ),
-          ),
-
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.horizontalPadding),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search by name or NIS...',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: AppColors.card,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-                  borderSide: BorderSide(color: AppColors.border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-                  borderSide: BorderSide(color: AppColors.border),
-                ),
-              ),
-              onChanged: (value) {
-                setState(() => _searchQuery = value);
-              },
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Certificates List
-          Expanded(
-            child: filteredCerts.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.horizontalPadding,
-                    ),
-                    itemCount: filteredCerts.length,
-                    itemBuilder: (context, index) {
-                      final cert = filteredCerts[index];
-                      return _buildCertificateCard(cert);
-                    },
-                  ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCertificateCard(Map<String, dynamic> cert) {
-    final downloaded = cert['downloaded'] as bool;
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.horizontalPadding),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: AppColors.error),
+            const SizedBox(height: 16),
+            Text(
+              'Gagal memuat sertifikat',
+              style:
+                  AppTextStyles.heading3.copyWith(color: AppColors.error),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage,
+              style: AppTextStyles.body2
+                  .copyWith(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.workspace_premium_outlined,
+              size: 64, color: AppColors.textTertiary),
+          const SizedBox(height: 16),
+          Text(
+            'Belum ada sertifikat',
+            style: AppTextStyles.heading3
+                .copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Generate sertifikat terlebih dahulu\ndari halaman Certificate.',
+            style: AppTextStyles.body2,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoSearchResultState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off, size: 64, color: AppColors.textTertiary),
+          const SizedBox(height: 16),
+          Text(
+            'Tidak ditemukan',
+            style: AppTextStyles.heading3
+                .copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Coba kata kunci lain.',
+            style: AppTextStyles.body2,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCertificateCard(CertificateModel cert) {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
       decoration: BoxDecoration(
@@ -204,12 +326,16 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
             padding: const EdgeInsets.all(AppSpacing.paddingLG),
             child: Row(
               children: [
-                // Avatar
+                // Avatar — inisial dari nama nyata
                 CircleAvatar(
                   radius: 24,
                   backgroundColor: AppColors.primary10,
                   child: Text(
-                    (cert['participantName'] as String).substring(0, 1).toUpperCase(),
+                    cert.participantName.isNotEmpty
+                        ? cert.participantName
+                            .substring(0, 1)
+                            .toUpperCase()
+                        : '?',
                     style: AppTextStyles.titleMedium.copyWith(
                       color: AppColors.primary,
                     ),
@@ -223,47 +349,13 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        cert['participantName'] as String,
+                        cert.participantName,
                         style: AppTextStyles.titleMedium,
                       ),
                       const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Text(
-                            'NIS: ${cert['participantNis']}',
-                            style: AppTextStyles.body2,
-                          ),
-                          const SizedBox(width: 12),
-                          if (downloaded)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.success.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.download_done,
-                                    size: 12,
-                                    color: AppColors.success,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Downloaded',
-                                    style: AppTextStyles.captionSmall.copyWith(
-                                      color: AppColors.success,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
+                      Text(
+                        'NIS: ${cert.participantNis}',
+                        style: AppTextStyles.body2,
                       ),
                     ],
                   ),
@@ -318,7 +410,7 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
             ),
           ),
 
-          // Certificate Number
+          // Certificate Number + Issue Date — dari CertificateModel nyata
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.paddingLG,
@@ -336,14 +428,14 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
                 Icon(Icons.tag, size: 16, color: AppColors.textSecondary),
                 const SizedBox(width: 8),
                 Text(
-                  cert['certificateNumber'] as String,
+                  cert.certificateNumber,
                   style: AppTextStyles.body2.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const Spacer(),
                 Text(
-                  cert['issuedDate'] as String,
+                  cert.formattedIssuedDate,
                   style: AppTextStyles.body2,
                 ),
               ],
@@ -354,34 +446,7 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off,
-            size: 64,
-            color: AppColors.textTertiary,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No certificates found',
-            style: AppTextStyles.heading3.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Try a different search term',
-            style: AppTextStyles.body2,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showPreviewDialog(Map<String, dynamic> cert) {
+  void _showPreviewDialog(CertificateModel cert) {
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -394,7 +459,8 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Certificate Preview', style: AppTextStyles.heading3),
+                  Text('Certificate Preview',
+                      style: AppTextStyles.heading3),
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
@@ -402,12 +468,13 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
                 ],
               ),
               const SizedBox(height: 16),
+              // Preview menggunakan data nyata dari CertificateModel
               CertificatePreviewWidget(
-                templateId: '1',
-                participantName: (cert['participantName'] as String).toUpperCase(),
-                eventTitle: 'CLASSMEET 2026',
-                eventDate: '15 Agustus 2026',
-                certificateNumber: cert['certificateNumber'] as String,
+                templateId: cert.templateId.isNotEmpty ? cert.templateId : '1',
+                participantName: cert.participantName.toUpperCase(),
+                eventTitle: cert.eventTitle.toUpperCase(),
+                eventDate: cert.formattedEventDate,
+                certificateNumber: cert.certificateNumber,
               ),
               const SizedBox(height: 16),
               Row(
@@ -439,23 +506,23 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
     );
   }
 
-  void _handleDownload(Map<String, dynamic> cert) {
+  void _handleDownload(CertificateModel cert) {
+    // REQUIRES RUNTIME IMPLEMENTATION: PDF generation & download
+    // Saat ini menampilkan notifikasi; implementasi PDF diluar scope Phase 5.
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Downloading certificate for ${cert['participantName']}...'),
+        content:
+            Text('Download: ${cert.certificateNumber} — ${cert.participantName}'),
       ),
     );
-    
-    // Mark as downloaded
-    setState(() {
-      cert['downloaded'] = true;
-    });
   }
 
-  void _handleShare(Map<String, dynamic> cert) {
+  void _handleShare(CertificateModel cert) {
+    // REQUIRES RUNTIME IMPLEMENTATION: share sheet / deep link
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Sharing certificate for ${cert['participantName']}...'),
+        content:
+            Text('Share: ${cert.certificateNumber} — ${cert.participantName}'),
       ),
     );
   }
@@ -464,7 +531,8 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Download All Certificates', style: AppTextStyles.heading3),
+        title: Text('Download All Certificates',
+            style: AppTextStyles.heading3),
         content: Text(
           'Download all ${_certificates.length} certificates as a ZIP file?',
           style: AppTextStyles.body1,
@@ -477,9 +545,11 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
+              // REQUIRES RUNTIME IMPLEMENTATION: ZIP generation & download
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Downloading all certificates...'),
+                SnackBar(
+                  content: Text(
+                      'Downloading ${_certificates.length} certificates...'),
                 ),
               );
             },

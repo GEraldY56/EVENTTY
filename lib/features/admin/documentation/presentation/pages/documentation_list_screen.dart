@@ -18,7 +18,7 @@ class DocumentationListScreen extends StatefulWidget {
 class _DocumentationListScreenState extends State<DocumentationListScreen> {
   final DocumentationService _documentationService = DocumentationService();
   List<EventModel> _events = [];
-  Map<String, bool> _hasDocumentation = {};
+  final Map<String, bool> _hasDocumentation = {};
   bool _isLoading = true;
 
   @override

@@ -101,39 +101,39 @@ class RegistrationModel {
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'eventId': eventId,
+        'event_id': eventId,
         'type': type.name,
-        'userId': userId,
-        'userName': userName,
-        'teamName': teamName,
-        'className': className,
-        'leaderId': leaderId,
-        'leaderName': leaderName,
+        'user_id': userId,
+        'user_name': userName,
+        'team_name': teamName,
+        'class_name': className,
+        'leader_id': leaderId,
+        'leader_name': leaderName,
         'members': members?.map((m) => m.toJson()).toList(),
-        'formData': formData,
-        'registrationDate': registrationDate.toIso8601String(),
+        'form_data': formData,
+        'registration_date': registrationDate.toIso8601String(),
         'status': status.name,
       };
 
   factory RegistrationModel.fromJson(Map<String, dynamic> json) {
     return RegistrationModel(
       id: json['id'] as String,
-      eventId: json['eventId'] as String,
+      eventId: json['event_id'] as String,
       type: RegistrationType.values.firstWhere(
         (e) => e.name == json['type'],
         orElse: () => RegistrationType.individual,
       ),
-      userId: json['userId'] as String?,
-      userName: json['userName'] as String?,
-      teamName: json['teamName'] as String?,
-      className: json['className'] as String?,
-      leaderId: json['leaderId'] as String?,
-      leaderName: json['leaderName'] as String?,
+      userId: json['user_id'] as String?,
+      userName: json['user_name'] as String?,
+      teamName: json['team_name'] as String?,
+      className: json['class_name'] as String?,
+      leaderId: json['leader_id'] as String?,
+      leaderName: json['leader_name'] as String?,
       members: json['members'] != null
           ? (json['members'] as List).map((m) => TeamMember.fromJson(m as Map<String, dynamic>)).toList()
           : null,
-      formData: json['formData'] as Map<String, dynamic>,
-      registrationDate: DateTime.parse(json['registrationDate'] as String),
+      formData: json['form_data'] as Map<String, dynamic>,
+      registrationDate: DateTime.parse(json['registration_date'] as String),
       status: RegistrationStatus.values.firstWhere(
         (e) => e.name == json['status'],
         orElse: () => RegistrationStatus.pending,

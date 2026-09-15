@@ -5,45 +5,99 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class ChatService {
   final _supabase = Supabase.instance.client;
 
-  // Stream controllers for real-time updates
-  final _messagesController = StreamController<List<ChatMessage>>.broadcast();
+  // Stream controllers for real-time updates - keyed by conversationId
+  final Map<String, StreamController<List<ChatMessage>>> _messagesControllers = {};
   final _conversationsController = StreamController<List<Conversation>>.broadcast();
 
-  RealtimeChannel? _messagesSubscription;
+  // Track subscriptions per conversation
+  final Map<String, RealtimeChannel> _messagesSubscriptions = {};
   RealtimeChannel? _conversationsSubscription;
 
-  /// Initialize realtime subscriptions
-  void initializeRealtimeSubscriptions() {
-    // Subscribe to messages changes
-    _messagesSubscription = _supabase
-        .channel('messages_changes')
+  /// Get current logged in user ID
+  String getCurrentUserId() {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      throw Exception('No user logged in');
+    }
+    return user.id;
+  }
+
+  /// Initialize realtime subscription for a specific conversation
+  void _initializeMessageSubscription(String conversationId) {
+    // Skip if already subscribed
+    if (_messagesSubscriptions.containsKey(conversationId)) {
+      return;
+    }
+
+
+    // Create stream controller if not exists
+    if (!_messagesControllers.containsKey(conversationId)) {
+      _messagesControllers[conversationId] = StreamController<List<ChatMessage>>.broadcast();
+    }
+
+    // Subscribe to messages changes for this conversation
+    _messagesSubscriptions[conversationId] = _supabase
+        .channel('messages_$conversationId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'messages',
-          callback: (_) => _notifyMessagesUpdate(),
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'conversation_id',
+            value: conversationId,
+          ),
+          callback: (payload) {
+            _notifyMessagesUpdate(conversationId);
+          },
         )
         .subscribe();
 
-    // Subscribe to conversations changes
+  }
+
+  /// Initialize conversations subscription (for admin)
+  void initializeConversationsSubscription() {
+    if (_conversationsSubscription != null) {
+      return;
+    }
+
+
     _conversationsSubscription = _supabase
         .channel('conversations_changes')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'conversations',
-          callback: (_) => _notifyConversationsUpdate(),
+          callback: (payload) {
+            _notifyConversationsUpdate();
+          },
         )
         .subscribe();
+
   }
 
   /// Get messages stream for a conversation
   Stream<List<ChatMessage>> getMessagesStream(String conversationId) {
-    return _messagesController.stream;
+    
+    // Initialize subscription if not exists
+    _initializeMessageSubscription(conversationId);
+    
+    // Trigger initial data load after brief delay
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _notifyMessagesUpdate(conversationId);
+    });
+    
+    // Return the stream for this conversation
+    return _messagesControllers[conversationId]!.stream;
   }
 
   /// Get all conversations stream (for admin)
   Stream<List<Conversation>> getConversationsStream() {
+    initializeConversationsSubscription();
+    // Trigger initial data load after a brief delay to ensure listener is ready
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _notifyConversationsUpdate();
+    });
     return _conversationsController.stream;
   }
 
@@ -74,7 +128,7 @@ class ChatService {
             'student_name': userName,
             'event_id': eventId,
             'event_title': eventTitle,
-            'mode': 'bot',
+            'mode': 'admin', // Default mode is 'admin' per Database V3.2
             'last_message': 'Conversation started',
             'last_message_at': DateTime.now().toIso8601String(),
           })
@@ -96,9 +150,9 @@ class ChatService {
           .eq('id', conversationId)
           .single();
 
-      return response['mode'] ?? 'bot';
+      return response['mode'] ?? 'admin'; // Default to 'admin'
     } catch (e) {
-      return 'bot';
+      return 'admin'; // Default to 'admin'
     }
   }
 
@@ -126,6 +180,7 @@ class ChatService {
     required String message,
   }) async {
     try {
+      
       // Insert message
       await _supabase.from('messages').insert({
         'conversation_id': conversationId,
@@ -134,6 +189,7 @@ class ChatService {
         'sender_role': senderRole,
         'message': message,
       });
+
 
       // Update conversation last message
       await _supabase
@@ -145,8 +201,9 @@ class ChatService {
           })
           .eq('id', conversationId);
 
-      _notifyMessagesUpdate();
-      _notifyConversationsUpdate();
+
+      // Realtime will automatically trigger the update via subscription
+      // No manual notify needed here
 
       return true;
     } catch (e) {
@@ -174,18 +231,40 @@ class ChatService {
   /// Get all conversations (for admin)
   Future<List<Conversation>> getAllConversations() async {
     try {
+      
+      // Fetch conversations without JOIN
       final response = await _supabase
           .from('conversations')
           .select()
           .eq('is_active', true)
           .order('last_message_at', ascending: false);
 
+
       List<Conversation> conversations = [];
 
       for (var convJson in response as List) {
         final messages = await getMessages(convJson['id']);
+        final studentId = convJson['student_id'];
+        
+        // Fetch NIS from profiles separately
+        String nis = studentId; // Default to UUID
+        try {
+          final profileResponse = await _supabase
+              .from('profiles')
+              .select('nis')
+              .eq('id', studentId)
+              .maybeSingle();
+          
+          if (profileResponse != null && profileResponse['nis'] != null) {
+            nis = profileResponse['nis'];
+          }
+        } catch (e) {
+          // Ignore - use empty NIS if fetch fails
+        }
+        
+        
         conversations.add(Conversation(
-          info: ConversationInfo.fromJson(convJson),
+          info: ConversationInfo.fromJson(convJson, studentNis: nis),
           messages: messages,
         ));
       }
@@ -210,8 +289,7 @@ class ChatService {
           .update({'unread_count': 0})
           .eq('id', conversationId);
 
-      _notifyMessagesUpdate();
-      _notifyConversationsUpdate();
+      // Realtime will automatically trigger the update
     } catch (e) {
       // Handle error silently
     }
@@ -244,29 +322,59 @@ class ChatService {
           .update({'is_active': false})
           .eq('id', conversationId);
 
-      _notifyConversationsUpdate();
+      // Realtime will automatically trigger the update
       return true;
     } catch (e) {
       return false;
     }
   }
 
-  /// Notify messages update
-  void _notifyMessagesUpdate() async {
-    // Implement if needed for specific conversation
+  /// Notify messages update for a specific conversation
+  void _notifyMessagesUpdate(String conversationId) async {
+    try {
+      final messages = await getMessages(conversationId);
+      
+      if (_messagesControllers.containsKey(conversationId)) {
+        _messagesControllers[conversationId]!.add(messages);
+      } else {
+      }
+    } catch (e) {
+      // Ignore stream error - will retry automatically
+    }
   }
 
   /// Notify conversations update
   void _notifyConversationsUpdate() async {
-    final conversations = await getAllConversations();
-    _conversationsController.add(conversations);
+    try {
+      final conversations = await getAllConversations();
+      _conversationsController.add(conversations);
+    } catch (e) {
+      // Handle error silently
+    }
   }
 
-  /// Dispose
+  /// Dispose specific conversation subscription
+  void disposeConversation(String conversationId) {
+    _messagesSubscriptions[conversationId]?.unsubscribe();
+    _messagesSubscriptions.remove(conversationId);
+    _messagesControllers[conversationId]?.close();
+    _messagesControllers.remove(conversationId);
+  }
+
+  /// Dispose all
   void dispose() {
-    _messagesSubscription?.unsubscribe();
+    for (var subscription in _messagesSubscriptions.values) {
+      subscription.unsubscribe();
+    }
+    _messagesSubscriptions.clear();
+    
     _conversationsSubscription?.unsubscribe();
-    _messagesController.close();
+    
+    for (var controller in _messagesControllers.values) {
+      controller.close();
+    }
+    _messagesControllers.clear();
+    
     _conversationsController.close();
   }
 }
@@ -328,20 +436,20 @@ class ConversationInfo {
     required this.lastMessage,
     required this.lastMessageTime,
     required this.unreadCount,
-    this.mode = 'bot',
+    this.mode = 'admin', // Default to 'admin' per Database V3.2
   });
 
-  factory ConversationInfo.fromJson(Map<String, dynamic> json) {
+  factory ConversationInfo.fromJson(Map<String, dynamic> json, {String? studentNis}) {
     return ConversationInfo(
       conversationId: json['id'],
-      userId: json['student_id'],
+      userId: studentNis ?? json['student_id'], // Use NIS if available, fallback to UUID
       userName: json['student_name'],
       eventId: json['event_id'],
       eventTitle: json['event_title'],
       lastMessage: json['last_message'] ?? '',
       lastMessageTime: DateTime.parse(json['last_message_at']),
       unreadCount: json['unread_count'] ?? 0,
-      mode: json['mode'] ?? 'bot',
+      mode: json['mode'] ?? 'admin', // Default to 'admin'
     );
   }
 }

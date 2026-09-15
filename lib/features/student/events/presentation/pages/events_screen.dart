@@ -4,14 +4,17 @@ import 'package:shimmer/shimmer.dart';
 import '../../../../../core/constants/colors.dart';
 import '../../../../../core/constants/text_styles.dart';
 import '../../../../../core/constants/spacing.dart';
+import '../../../../../core/routes/route_names.dart';
 import '../../../../../core/services/event_service.dart';
 import '../../../../../core/models/event_model.dart';
+import '../../../../../core/utils/category_mapper.dart';
 import '../../../../shared/widgets/event_card.dart';
 
 class EventsScreen extends StatefulWidget {
   final String? initialCategory;
+  final String? initialQuery;
   
-  const EventsScreen({super.key, this.initialCategory});
+  const EventsScreen({super.key, this.initialCategory, this.initialQuery});
 
   @override
   State<EventsScreen> createState() => _EventsScreenState();
@@ -19,7 +22,8 @@ class EventsScreen extends StatefulWidget {
 
 class _EventsScreenState extends State<EventsScreen> {
   final EventService _eventService = EventService();
-  String _selectedCategory = 'All';
+  String _selectedCategory = CategoryMapper.all;
+  String _selectedStatus = 'all';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
@@ -27,14 +31,23 @@ class _EventsScreenState extends State<EventsScreen> {
   List<EventModel> _allEvents = [];
   String? _errorMessage;
   
+  // Final categories
   final List<Map<String, String>> _categories = [
-    {'name': 'All', 'slug': 'all'},
-    {'name': 'Classmeet', 'slug': 'classmeet'},
-    {'name': 'Sports', 'slug': 'sports'},
-    {'name': 'Seminar', 'slug': 'seminar'},
-    {'name': 'Workshop', 'slug': 'workshop'},
-    {'name': 'Career', 'slug': 'career'},
-    {'name': 'Science', 'slug': 'science'},
+    {'name': 'Semua', 'value': CategoryMapper.all},
+    {'name': 'Sekolah', 'value': CategoryMapper.sekolah},
+    {'name': 'Harian', 'value': CategoryMapper.harian},
+    {'name': 'Seminar', 'value': CategoryMapper.seminar},
+    {'name': 'Workshop', 'value': CategoryMapper.workshop},
+    {'name': 'Kompetisi', 'value': CategoryMapper.kompetisi},
+    {'name': 'Lainnya', 'value': CategoryMapper.lainnya},
+  ];
+
+  // Status filters
+  final List<Map<String, String>> _statuses = [
+    {'name': 'Semua', 'value': 'all'},
+    {'name': 'Open', 'value': 'open'},
+    {'name': 'Ongoing', 'value': 'ongoing'},
+    {'name': 'Closed', 'value': 'closed'},
   ];
 
   @override
@@ -42,11 +55,12 @@ class _EventsScreenState extends State<EventsScreen> {
     super.initState();
     // Set initial category dari navigation parameter
     if (widget.initialCategory != null) {
-      final matchedCategory = _categories.firstWhere(
-        (cat) => cat['slug'] == widget.initialCategory,
-        orElse: () => _categories[0],
-      );
-      _selectedCategory = matchedCategory['name']!;
+      _selectedCategory = widget.initialCategory!.toLowerCase();
+    }
+    // Set initial search query
+    if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
+      _searchQuery = widget.initialQuery!;
+      _searchController.text = widget.initialQuery!;
     }
     _loadEvents();
   }
@@ -77,14 +91,21 @@ class _EventsScreenState extends State<EventsScreen> {
     super.dispose();
   }
 
-  // Filter events based on search query and category
+  // Filter events based on search query, category, and status
   List<EventModel> _getFilteredEvents() {
     List<EventModel> filtered = _allEvents;
 
     // Filter by category
-    if (_selectedCategory != 'All') {
+    if (_selectedCategory != CategoryMapper.all) {
       filtered = filtered.where((event) {
-        return event.category.toLowerCase().contains(_selectedCategory.toLowerCase());
+        return CategoryMapper.matchesCategory(event.category, _selectedCategory);
+      }).toList();
+    }
+
+    // Filter by status
+    if (_selectedStatus != 'all') {
+      filtered = filtered.where((event) {
+        return event.status.toLowerCase() == _selectedStatus.toLowerCase();
       }).toList();
     }
 
@@ -92,10 +113,13 @@ class _EventsScreenState extends State<EventsScreen> {
     if (_searchQuery.isNotEmpty) {
       filtered = filtered.where((event) {
         final title = event.title.toLowerCase();
+        final description = event.description.toLowerCase();
         final category = event.category.toLowerCase();
         final query = _searchQuery.toLowerCase();
         
-        return title.contains(query) || category.contains(query);
+        return title.contains(query) || 
+               description.contains(query) ||
+               category.contains(query);
       }).toList();
     }
 
@@ -180,14 +204,15 @@ class _EventsScreenState extends State<EventsScreen> {
                 itemBuilder: (context, index) {
                   final category = _categories[index];
                   final categoryName = category['name']!;
-                  final isSelected = _selectedCategory == categoryName;
+                  final categoryValue = category['value']!;
+                  final isSelected = _selectedCategory == categoryValue;
                   
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: GestureDetector(
                       onTap: () {
                         setState(() {
-                          _selectedCategory = categoryName;
+                          _selectedCategory = categoryValue;
                         });
                       },
                       child: Container(
@@ -208,6 +233,64 @@ class _EventsScreenState extends State<EventsScreen> {
                             style: AppTextStyles.body2.copyWith(
                               color: isSelected ? Colors.white : AppColors.textPrimary,
                               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.paddingMD),
+
+            // Status Filter
+            SizedBox(
+              height: 38,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.horizontalPadding,
+                ),
+                itemCount: _statuses.length,
+                itemBuilder: (context, index) {
+                  final status = _statuses[index];
+                  final statusName = status['name']!;
+                  final statusValue = status['value']!;
+                  final isSelected = _selectedStatus == statusValue;
+                  
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedStatus = statusValue;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected 
+                              ? AppColors.primary.withValues(alpha: 0.1)
+                              : AppColors.card,
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                          border: Border.all(
+                            color: isSelected 
+                                ? AppColors.primary 
+                                : AppColors.border.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            statusName,
+                            style: AppTextStyles.caption.copyWith(
+                              color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                              fontSize: 12,
                             ),
                           ),
                         ),
@@ -283,18 +366,29 @@ class _EventsScreenState extends State<EventsScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'No events found',
+                            'Tidak ada event yang sesuai',
                             style: AppTextStyles.heading3.copyWith(
                               color: AppColors.textSecondary,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            _searchQuery.isNotEmpty
-                                ? 'Try searching with different keywords'
-                                : 'Try selecting a different category',
+                            'Tidak ada event yang sesuai dengan filter.',
                             style: AppTextStyles.body2,
                             textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _selectedCategory = CategoryMapper.all;
+                                _selectedStatus = 'all';
+                                _searchQuery = '';
+                                _searchController.clear();
+                              });
+                            },
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Reset Filter'),
                           ),
                         ],
                       ),
@@ -321,7 +415,7 @@ class _EventsScreenState extends State<EventsScreen> {
                           maxParticipants: event.capacity,
                           imageUrl: _getThumbnailFromDetailImage(event.imageUrl),
                           onTap: () {
-                            context.push('/events/${event.id}');
+                            context.push(RouteNames.eventDetail.replaceAll(':id', event.id));
                           },
                         ),
                       );

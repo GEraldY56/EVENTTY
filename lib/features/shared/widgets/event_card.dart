@@ -35,9 +35,9 @@ class EventCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: context.colors.card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border, width: 0.5),
+          border: Border.all(color: context.colors.border, width: 0.5),
           boxShadow: [
             BoxShadow(
               color: AppColors.shadowLight,
@@ -96,14 +96,15 @@ class EventCard extends StatelessWidget {
                       Icon(
                         Icons.calendar_today_rounded,
                         size: 14,
-                        color: AppColors.textSecondary,
+                        color: context.colors.textSecondary,
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           date,
                           style: AppTextStyles.caption.copyWith(
-                            color: AppColors.textSecondary,
+                            color: context.colors.textSecondary,
+                            fontSize: 13,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -120,14 +121,15 @@ class EventCard extends StatelessWidget {
                       Icon(
                         Icons.location_on_rounded,
                         size: 14,
-                        color: AppColors.textSecondary,
+                        color: context.colors.textSecondary,
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           location,
                           style: AppTextStyles.caption.copyWith(
-                            color: AppColors.textSecondary,
+                            color: context.colors.textSecondary,
+                            fontSize: 13,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -158,8 +160,9 @@ class EventCard extends StatelessWidget {
                         Text(
                           '$currentParticipants/$maxParticipants',
                           style: AppTextStyles.captionSmall.copyWith(
-                            color: AppColors.textSecondary,
+                            color: context.colors.textSecondary,
                             fontWeight: FontWeight.w600,
+                            fontSize: 12,
                           ),
                         ),
                       ],
